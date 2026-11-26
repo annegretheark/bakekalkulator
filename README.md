@@ -17,6 +17,19 @@ npm run preview    # forhåndsvis produksjonsbygget
 
 Krever Node 20 eller nyere. Appen starter med eksempeldata (oppskrift på tre grovbrød, ti ingredienser og tre historiske bakinger), så den kan demonstreres med en gang. Under **Innstillinger** kan du slette eller laste inn eksempeldataene på nytt.
 
+## Publisering (Cloudflare)
+
+Appen kjører på **https://bakekalkulator.rettilomma.com** som en Cloudflare Worker med Static Assets. Den har ingen serverkode, bare statiske filer.
+
+```bash
+npm run deploy   # bygger med .env.local og publiserer (cf deploy)
+```
+
+- Oppsettet ligger i `cloudflare.config.ts` (Worker-navn, SPA-håndtering og domenet `bakekalkulator.rettilomma.com`, som Cloudflare lager DNS og SSL for).
+- `VITE_SUPABASE_URL` og den offentlige nøkkelen bakes inn i JavaScript-filen ved bygg. Bare den offentlige nøkkelen skal ligge i `.env.local`.
+- Kjør `npx cf auth login` første gang. Bruk prosjektets `cf` (`npm run deploy` / `npx cf`), ikke en eldre global versjon.
+- Byggeresultatet (`.cloudflare/`) er ignorert av git.
+
 ## Funksjoner
 
 | Side | Innhold |
