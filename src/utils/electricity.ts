@@ -37,6 +37,7 @@ export function componentExVat(c: PriceComponent, vatRatePercent: number): numbe
  *  3. Strømstøtte (kun husholdning med spot) trekkes fra til slutt, inkl. mva.
  *  Bedrifter: ingen Norgespris og ingen strømstøtte.
  *  4. Manuell pris brukes som den er – ingen tillegg.
+ *  5. Totalprisen kan bli negativ når spotprisen er negativ (ingen nedre grense).
  *
  * @param spotExVat Spotpris eks. mva for intervallet (påkrevd i spot-modus).
  */
@@ -49,7 +50,7 @@ export function calculatePrice(settings: PriceSettings, spotExVat: number | null
   if (mode !== settings.mode) notes.push('Norgespris gjelder ikke bedrifter – spotpris er brukt.')
 
   if (mode === 'manuell') {
-    const total = Math.max(0, settings.manualTotalKrPerKwh || 0)
+    const total = Number.isFinite(settings.manualTotalKrPerKwh) ? settings.manualTotalKrPerKwh : 0
     return {
       energy: total, supplierMarkup: 0, gridFee: 0, electricityTax: 0, otherFees: 0, vat: 0, subsidy: 0, total,
       notes: ['Manuell totalpris – nettleie, avgifter og mva antas inkludert.'],
@@ -83,12 +84,13 @@ export function calculatePrice(settings: PriceSettings, spotExVat: number | null
   let subsidy = 0
   if (subsidyApplies(settings) && spotExVat !== null) {
     const over = Math.max(0, spotExVat - settings.subsidy.thresholdKrPerKwhExVat)
-    subsidy = -(over * (Math.min(100, Math.max(0, settings.subsidy.coveragePercent)) / 100) * (1 + r))
+    // Unngå -0 (vises som «−0,0 øre») når spotprisen er under terskelen eller negativ
+    if (over > 0) subsidy = -(over * (Math.min(100, Math.max(0, settings.subsidy.coveragePercent)) / 100) * (1 + r))
   }
 
   return {
     energy, supplierMarkup: markup, gridFee, electricityTax, otherFees, vat, subsidy,
-    total: Math.max(0, subtotal + vat + subsidy),
+    total: subtotal + vat + subsidy, // kan være negativ ved negativ spotpris
     notes,
   }
 }

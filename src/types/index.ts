@@ -55,6 +55,28 @@ export interface PriceSettings {
     thresholdKrPerKwhExVat: number
     coveragePercent: number
   }
+  /**
+   * 'auto': Norgespris, strømstøtte og elavgift hentes fra gjeldende offentlige
+   * satser for datoen. Utløpte satser brukes ikke. 'manual': brukerens egne verdier.
+   */
+  officialRates: 'auto' | 'manual'
+}
+
+/** Offentlig sats med gyldighetsperiode (speiler tabellen electricity_tariffs). */
+export interface Tariff {
+  id?: string
+  code: string
+  description: string
+  value: number
+  unit: string
+  area: PriceArea | null
+  customerType: CustomerType | null
+  validFrom: string // YYYY-MM-DD
+  validTo: string | null
+  sourceUrl: string
+  /** Dato kilden sist ble kontrollert. null = ikke kontrollert → brukes ikke automatisk. */
+  verifiedAt: string | null
+  notes?: string | null
 }
 
 /** Oppbygging av strømpris per kWh. Alle beløp inkl. mva der mva gjelder. */
@@ -184,6 +206,8 @@ export interface BakeLog {
   revenue: number | null
   profit: number | null
   note: string
+  /** Detaljer fra beregningen (ingredienslinjer, prisgrunnlag) – lagres uendret. */
+  snapshot?: Record<string, unknown>
 }
 
 // ---------- Salg ----------
@@ -219,7 +243,7 @@ export interface SalesResult {
 }
 
 // ---------- Innstillinger ----------
-export type Plan = 'free' | 'pro'
+export type Plan = 'free' | 'plus' | 'pro'
 
 export interface AppSettings {
   locale: string // 'nb-NO'

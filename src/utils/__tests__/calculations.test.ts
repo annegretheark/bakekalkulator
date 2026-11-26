@@ -24,6 +24,7 @@ const priceSettings = (o: Partial<PriceSettings> = {}): PriceSettings => ({
   electricityTax: { enabled: false, krPerKwh: 0, includesVat: false, includedInGridFee: false },
   otherFees: { enabled: false, krPerKwh: 0, includesVat: false },
   subsidy: { enabled: false, thresholdKrPerKwhExVat: 0.75, coveragePercent: 90 },
+  officialRates: 'manual',
   ...o,
 })
 

@@ -16,6 +16,9 @@ const HEADINGS: Record<string, RegExp> = {
 }
 
 beforeAll(() => {
+  // Tving lokal modus – testene skal aldri kontakte den eksterne databasen
+  vi.stubEnv('VITE_SUPABASE_URL', '')
+  vi.stubEnv('VITE_SUPABASE_ANON_KEY', '')
   const start = new Date()
   start.setHours(0, 0, 0, 0)
   const rows = Array.from({ length: 24 }, (_, h) => ({
@@ -30,7 +33,7 @@ beforeAll(() => {
   window.scrollTo = () => {}
 })
 
-afterAll(() => vi.unstubAllGlobals())
+afterAll(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
 
 describe('appen', () => {
   it('rendrer alle sider uten feil', async () => {
@@ -41,6 +44,15 @@ describe('appen', () => {
         window.dispatchEvent(new HashChangeEvent('hashchange'))
       })
       expect(await screen.findByRole('heading', { level: 1, name: HEADINGS[route] })).toBeTruthy()
+    }
+  })
+
+  it('kontosider fungerer i lokal modus uten innlogging', async () => {
+    const pages: [string, RegExp][] = [['logg-inn', /^Logg inn$/], ['registrer', /^Opprett konto$/], ['personvern', /^Personvernerklæring$/], ['vilkar', /^Brukervilkår$/]]
+    for (const [route, heading] of pages) {
+      await act(async () => { window.location.hash = `/${route}`; window.dispatchEvent(new HashChangeEvent('hashchange')) })
+      expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeTruthy()
+      if (route === 'logg-inn') expect(screen.getAllByText(/Innlogging er ikke satt opp/).length).toBeGreaterThan(0)
     }
   })
 

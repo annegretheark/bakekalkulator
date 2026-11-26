@@ -61,6 +61,21 @@ export class LocalStorageRepository implements DataRepository {
   }
 
   load() { return Promise.resolve(this.read()) }
+
+  /** Leser lagrede data uten å legge inn eksempeldata (brukes ved import). */
+  peek(): AppData | null {
+    try {
+      const raw = this.storage?.getItem(KEY)
+      return raw ? migrate(JSON.parse(raw)) : null
+    } catch {
+      return null
+    }
+  }
+
+  /** Sletter lokale data. Kalles kun etter bekreftet vellykket import. */
+  clear(): void {
+    this.storage?.removeItem(KEY)
+  }
   saveSettings(settings: AppSettings) { return this.update((d) => ({ ...d, settings })) }
   upsertIngredient(item: Ingredient) { return this.update((d) => ({ ...d, ingredients: upsert(d.ingredients, item) })) }
   deleteIngredient(id: Id) { return this.update((d) => ({ ...d, ingredients: d.ingredients.filter((x) => x.id !== id) })) }

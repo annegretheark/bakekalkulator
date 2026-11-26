@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { ChartColumn, Clock, Loader2, Receipt, RefreshCw, SlidersHorizontal, Zap } from 'lucide-react'
+import { ChartColumn, Clock, ExternalLink, Landmark, Loader2, Receipt, RefreshCw, SlidersHorizontal, Zap } from 'lucide-react'
 import { PRICE_AREAS, type CustomerType, type PriceArea, type PriceMode } from '../types'
 import { useData, useFormat, useT } from '../hooks/useData'
 import { useCheapestWindow, usePriceData } from '../hooks/usePriceData'
@@ -9,6 +9,9 @@ import { PriceSettingsForm } from '../components/PriceSettingsForm'
 import { AREA_NAMES } from '../lib/defaults'
 import { calculatePrice, effectiveMode, intervalMinutes, priceIntervals } from '../utils/electricity'
 import { formatMoney, formatOre, formatTime } from '../utils/format'
+import { useAuth } from '../hooks/useAuth'
+import { isTariffActive } from '../utils/tariffs'
+import { osloDateKey } from '../services/priceApi'
 
 export function PricesPage() {
   const t = useT()
@@ -18,18 +21,24 @@ export function PricesPage() {
   const { window } = useCheapestWindow(draft.energy)
   const ps = data.settings.price
   const setPrice = (p: typeof ps) => saveSettings({ ...data.settings, price: p })
+  // Beregninger bruker oppsettet etter at gjeldende offentlige satser er lagt inn
+  const eff = prices.effectiveSettings
+  const { activeOrg } = useAuth()
+  const readOnly = activeOrg?.role === 'member'
+  const today = osloDateKey(prices.now)
 
   const currentSpot = prices.current?.spotNokPerKwh ?? null
-  const breakdown = useMemo(() => calculatePrice(ps, currentSpot), [ps, currentSpot])
+  const breakdown = useMemo(() => calculatePrice(eff, currentSpot), [eff, currentSpot])
   const resolution = prices.today.intervals[0] ? intervalMinutes(prices.today.intervals[0]) : null
   const business = ps.customerType === 'bedrift'
-  const mode = effectiveMode(ps)
+  const selectedMode = effectiveMode(ps)
+  const mode = effectiveMode(eff)
   const isSpot = mode === 'spot'
   const modes: PriceMode[] = business ? ['spot', 'fastpris', 'manuell'] : ['spot', 'norgespris', 'fastpris', 'manuell']
   // Ved fast pris vises spotpris med samme tillegg som sammenligning
   const chartIntervals = useMemo(
-    () => (isSpot ? prices.priced : priceIntervals(prices.priced, { ...ps, mode: 'spot' })),
-    [isSpot, prices.priced, ps],
+    () => (isSpot ? prices.priced : priceIntervals(prices.priced, { ...eff, mode: 'spot' })),
+    [isSpot, prices.priced, eff],
   )
   const upcoming = prices.priced.filter((p) => Date.parse(p.end) > prices.now.getTime())
   const minToday = prices.priced.length ? prices.priced.reduce((a, b) => (b.totalPerKwh < a.totalPerKwh ? b : a)) : null
@@ -37,10 +46,10 @@ export function PricesPage() {
   const rows: [string, number, boolean][] = [
     [mode === 'spot' ? 'Spotpris' : mode === 'norgespris' ? 'Norgespris' : mode === 'fastpris' ? 'Fastpris' : 'Manuell totalpris', breakdown.energy, true],
     ['Påslag', breakdown.supplierMarkup, breakdown.supplierMarkup !== 0],
-    ['Nettleie (energiledd)', breakdown.gridFee, ps.gridFee.enabled],
+    ['Nettleie (energiledd)', breakdown.gridFee, eff.gridFee.enabled],
     ['Elavgift', breakdown.electricityTax, breakdown.electricityTax !== 0],
-    ['Andre avgifter', breakdown.otherFees, ps.otherFees.enabled],
-    [business && ps.vatDeductible ? 'Mva (trekkes fra)' : `Mva (${ps.vatRatePercent} %)`, breakdown.vat, mode !== 'manuell' && !(business && ps.vatDeductible)],
+    ['Andre avgifter', breakdown.otherFees, eff.otherFees.enabled],
+    [business && eff.vatDeductible ? 'Mva (trekkes fra)' : `Mva (${eff.vatRatePercent} %)`, breakdown.vat, mode !== 'manuell' && !(business && eff.vatDeductible)],
     ['Strømstøtte', breakdown.subsidy, breakdown.subsidy !== 0],
   ]
 
@@ -73,7 +82,7 @@ export function PricesPage() {
           </div>
           <div className="field">
             <span className="label">Strømavtale</span>
-            <Segmented<PriceMode> label="Strømavtale" value={mode} onChange={(v) => setPrice({ ...ps, mode: v })}
+            <Segmented<PriceMode> label="Strømavtale" value={selectedMode} onChange={(v) => setPrice({ ...ps, mode: v })}
               options={modes.map((m) => ({ value: m, label: t(`priceMode.${m}`) }))} />
           </div>
         </div>
@@ -86,6 +95,8 @@ export function PricesPage() {
         <StatCard icon={Receipt} label="Laveste pris" value={minToday ? formatOre(minToday.totalPerKwh, f.locale) : '–'} sub={minToday ? formatTime(minToday.start, f.locale) : undefined} />
       </div>
 
+      {readOnly && <Notice>Du er medlem i {activeOrg?.name}. Bare eier eller administrator kan endre strømoppsettet.</Notice>}
+      {prices.tariffWarnings.map((w) => <Notice key={w} tone="warn">{w}</Notice>)}
       {!isSpot && <Notice>Med {t(`priceMode.${mode}`).toLowerCase()} er prisen lik hele døgnet. Grafen viser likevel spotprisen med dine tillegg for sammenligning.</Notice>}
       {prices.today.error && <Notice tone="error">I dag: {prices.today.error} Du kan bruke manuell pris i mellomtiden.</Notice>}
       {prices.tomorrow.notPublished && <Notice>Morgendagens priser publiseres vanligvis rundt kl. 13. Billigste tidspunkt beregnes ut fra prisene som er kjent nå.</Notice>}
@@ -122,9 +133,37 @@ export function PricesPage() {
           {breakdown.notes.map((n) => <p key={n} className="muted small">• {n}</p>)}
         </Card>
         <Card title="Tillegg og avgifter" icon={SlidersHorizontal}>
-          <PriceSettingsForm value={ps} onChange={setPrice} />
+          <PriceSettingsForm value={ps} effective={eff} onChange={setPrice} />
         </Card>
       </div>
+
+      <Card title="Offentlige satser" icon={Landmark}>
+        <p className="muted small">
+          Satsene er datostyrte. Utløpte satser brukes ikke automatisk. Kilde: {prices.tariffSource === 'database' ? 'databasen (vedlikeholdes av systemeier)' : 'lokal kopi i appen'}.
+          {ps.officialRates === 'manual' && ' Du bruker egne satser – offentlige satser legges ikke inn automatisk.'}
+        </p>
+        <div className="table-wrap">
+          <table className="clean responsive">
+            <thead><tr><th>Sats</th><th className="num">Verdi</th><th>Gyldig</th><th>Verifisert</th><th>Status</th><th>Kilde</th></tr></thead>
+            <tbody>
+              {prices.tariffs.map((tr) => {
+                const active = isTariffActive(tr, today)
+                const used = prices.tariffsUsed.includes(tr)
+                return (
+                  <tr key={tr.id ?? `${tr.code}-${tr.validFrom}`} className={active ? '' : 'excluded'}>
+                    <td data-label="Sats"><strong>{tr.description}</strong>{tr.customerType && <small className="muted block">{tr.customerType === 'privat' ? 'Husholdning' : 'Bedrift'}</small>}</td>
+                    <td data-label="Verdi" className="num">{tr.unit === 'prosent' ? `${tr.value} %` : formatOre(tr.value, f.locale)}</td>
+                    <td data-label="Gyldig">{tr.validFrom.split('-').reverse().join('.')}–{tr.validTo ? tr.validTo.split('-').reverse().join('.') : 'inntil videre'}</td>
+                    <td data-label="Verifisert">{tr.verifiedAt ? tr.verifiedAt.split('-').reverse().join('.') : 'Ikke kontrollert'}</td>
+                    <td data-label="Status">{!active ? (tr.validTo && tr.validTo < today ? 'Utløpt' : 'Ikke startet') : !tr.verifiedAt ? 'Ikke kontrollert – brukes ikke' : used ? 'Brukes nå' : 'Gjeldende'}</td>
+                    <td data-label="Kilde"><a href={tr.sourceUrl} target="_blank" rel="noreferrer">Kilde <ExternalLink size={12} /></a></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </>
   )
 }

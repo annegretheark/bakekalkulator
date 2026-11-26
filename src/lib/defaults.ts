@@ -18,19 +18,19 @@ export const RATE_REFERENCES = {
   norgespris: {
     krPerKwhExVat: 0.4,
     validTo: '2026-12-31',
-    source: 'https://www.regjeringen.no/contentassets/dc84ac95544f4725ba7765c65225f089/forskrift-om-norgespris.pdf',
-    note: '40 øre/kWh eks. mva t.o.m. 31.12.2026. For 2027 er 45 øre eks. mva foreslått i statsbudsjettet.',
+    source: 'https://lovdata.no/dokument/SF/forskrift/2025-09-08-1790',
+    note: '40 øre/kWh eks. mva t.o.m. 31.12.2026 (forskrift om Norgespris § 10). Sats for 2027 er ikke fastsatt.',
   },
   subsidy: {
     thresholdExVat: 0.77,
     coveragePercent: 90,
-    source: 'https://www.regjeringen.no/no/tema/energi/strom/regjeringens-stromtiltak/id2900232/',
+    source: 'https://lovdata.no/dokument/SF/forskrift/2025-09-08-1791',
     note: '90 % av spotpris over 77 øre/kWh eks. mva, time for time. Ikke for hytter, og ikke sammen med Norgespris.',
   },
   electricityTax: {
     krPerKwhExVat: 0.0713,
-    source: 'https://www.skatteetaten.no/bedrift-og-organisasjon/avgifter/saravgifter/om/elektrisk-kraft/',
-    note: 'Alminnelig sats 7,13 øre/kWh i 2026. Finnmark og deler av Troms er fritatt. Er ofte inkludert i nettleiens energiledd.',
+    source: 'https://www.stortinget.no/no/Saker-og-publikasjoner/Vedtak/Vedtak/Sak/?did=40035803&p=104911',
+    note: 'Alminnelig sats 7,13 øre/kWh i 2026. Husholdninger i tiltakssonen (Finnmark og sju kommuner i Troms) er fritatt – slå da av elavgift. Er ofte inkludert i nettleiens energiledd.',
   },
   business: {
     note: 'Norgespris og strømstøtte gjelder kun husholdninger. Mva-registrerte bedrifter får fradrag for inngående mva, så den reelle kostnaden er eks. mva.',
@@ -67,6 +67,7 @@ export function defaultPriceSettings(area: PriceArea = 'NO1'): PriceSettings {
       thresholdKrPerKwhExVat: RATE_REFERENCES.subsidy.thresholdExVat,
       coveragePercent: RATE_REFERENCES.subsidy.coveragePercent,
     },
+    officialRates: 'auto',
   }
 }
 

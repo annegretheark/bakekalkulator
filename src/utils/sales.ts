@@ -27,7 +27,7 @@ export function calculateSales(input: SalesInput): SalesResult {
 
   const totalCost =
     nn(input.ingredientCost) +
-    nn(input.electricityCost) +
+    (Number.isFinite(input.electricityCost) ? input.electricityCost : 0) + // kan være negativ
     nn(input.packagingPerUnit) * units +
     nn(input.laborHours) * nn(input.hourlyRate) +
     nn(input.transport) +

@@ -20,7 +20,7 @@ export function Overview() {
   const s = summarize(data.history)
   const breads = data.history.filter((l) => l.type === 'brod').reduce((a, l) => a + l.count, 0)
   const area = data.settings.price.area
-  const mode = effectiveMode(data.settings.price)
+  const mode = effectiveMode(prices.effectiveSettings)
   const isSpot = mode === 'spot'
   const nextDay = prices.priced.filter((p) => Date.parse(p.end) > prices.now.getTime() && Date.parse(p.start) < prices.now.getTime() + 24 * 3_600_000)
 

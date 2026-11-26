@@ -55,7 +55,7 @@ export function HistoryPage() {
             <SelectField<BakeType> label="Type" value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={BAKE_TYPES.map((b) => ({ value: b, label: t(`bakeType.${b}`) }))} />
             <NumberField label="Antall" value={form.count} integer min={1} onChange={(v) => setForm({ ...form, count: v })} suffix="stk" />
             <NumberField label="Strømforbruk" value={Math.round(form.kwh * 1000) / 1000} onChange={(v) => setForm({ ...form, kwh: v })} suffix="kWh" />
-            <NumberField label="Strømpris" value={Math.round(form.pricePerKwh * 10000) / 100} onChange={(v) => setForm({ ...form, pricePerKwh: v / 100 })} suffix="øre/kWh" />
+            <NumberField label="Strømpris" min={-1000} hint="Kan være negativ" value={Math.round(form.pricePerKwh * 10000) / 100} onChange={(v) => setForm({ ...form, pricePerKwh: v / 100 })} suffix="øre/kWh" />
             <NumberField label="Ingredienskostnad" value={Math.round(form.ingredientCost * 100) / 100} onChange={(v) => setForm({ ...form, ingredientCost: v })} suffix="kr" />
             <NumberField label="Butikkpris" value={form.storePricePerItem} onChange={(v) => setForm({ ...form, storePricePerItem: v })} suffix="kr/stk" />
             <NumberField label="Salgsinntekt (valgfritt)" value={form.revenue ?? 0} onChange={(v) => setForm({ ...form, revenue: v > 0 ? v : null })} suffix="kr" hint="Eks. mva. La stå 0 hvis ikke solgt." />

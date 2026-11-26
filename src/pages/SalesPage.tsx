@@ -6,10 +6,16 @@ import { useBakeResult } from '../hooks/useBakeResult'
 import { Card, Notice, NumberField, PageHeader, StatCard, Toggle } from '../components/ui'
 import { calculateSales } from '../utils/sales'
 import { formatMoney, formatNumber, formatPercent, uid } from '../utils/format'
+import { useAuth } from '../hooks/useAuth'
+import { canUse } from '../lib/plans'
+import { navigate } from '../hooks/useRoute'
 
 export function SalesPage() {
   const f = useFormat()
   const { draft, addLog } = useData()
+  const auth = useAuth()
+  // Salg krever Plus/Pro. Håndheves i databasen; her vises det bare i grensesnittet.
+  const salesAllowed = !auth.configured || canUse(auth.plan, 'salesCalculator')
   const { result, pricePerKwh } = useBakeResult()
   const [saved, setSaved] = useState(false)
   const [input, setInput] = useState<SalesInput>(() => ({
@@ -53,8 +59,10 @@ export function SalesPage() {
       <PageHeader title="Salg og fortjeneste" description="For hjemmebakere, bakerier og småskalaprodusenter. Alle beløp regnes eks. mva."
         actions={<>
           <button className="btn ghost" onClick={fillFromCalculator}><Calculator size={16} /> Hent fra kalkulator</button>
-          <button className="btn primary" onClick={saveToHistory} disabled={input.units <= 0}><Save size={16} /> {saved ? 'Lagret' : 'Lagre i historikk'}</button>
+          <button className="btn primary" onClick={saveToHistory} disabled={input.units <= 0 || !salesAllowed}><Save size={16} /> {saved ? 'Lagret' : 'Lagre i historikk'}</button>
         </>} />
+
+      {!salesAllowed && <Notice tone="warn">Lagring av salg og fortjeneste krever Plus eller Pro. Du kan fortsatt regne på priser. <button className="link" onClick={() => navigate('konto')}>Se abonnement</button></Notice>}
 
       <div className="stats-grid">
         <StatCard icon={Coins} label="Total kostnad" value={formatMoney(r.totalCost, f)} sub={`${formatMoney(r.costPerSoldUnit, f)} per solgte stk`} />
@@ -71,7 +79,7 @@ export function SalesPage() {
               <NumberField label="Antall produsert" value={input.units} integer min={1} onChange={(v) => set('units', v)} suffix="stk" />
               <NumberField label="Svinn" value={input.wastePercent} max={100} onChange={(v) => set('wastePercent', v)} suffix="%" hint={`${formatNumber(r.soldUnits, 1, f.locale)} stk regnes som solgt`} />
               <NumberField label="Ingredienser" value={input.ingredientCost} onChange={(v) => set('ingredientCost', v)} suffix="kr" />
-              <NumberField label="Strøm" value={input.electricityCost} onChange={(v) => set('electricityCost', v)} suffix="kr" />
+              <NumberField label="Strøm" min={-100000} value={input.electricityCost} onChange={(v) => set('electricityCost', v)} suffix="kr" />
               <NumberField label="Emballasje per stk" value={input.packagingPerUnit} onChange={(v) => set('packagingPerUnit', v)} suffix="kr" />
             </div>
           </Card>

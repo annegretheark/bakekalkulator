@@ -32,6 +32,12 @@ export function CalculatorPage() {
       type: draft.type, count: draft.count, kwh: result.energy.totalKwh, pricePerKwh, electricityCost: result.electricityCost,
       ingredientCost: result.ingredientCost, totalCost: result.totalCost, costPerItem: result.costPerItem ?? 0,
       storePricePerItem: draft.storePricePerItem, revenue: null, profit: null, note: '',
+      // Øyeblikksbilde av beregningsgrunnlaget – endres ikke når priser oppdateres senere
+      snapshot: {
+        priceSource,
+        energy: { parts: result.partCosts, measured: result.energy.measured },
+        ingredients: result.ingredientLines.map((l) => ({ name: l.name, amount: l.amount, unit: l.unit, cost: l.cost })),
+      },
     })
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)

@@ -28,7 +28,8 @@ export interface BakeResult {
 /** Samler alle beregninger for én baking. Rene funksjoner – ingen UI-avhengigheter. */
 export function computeBake(input: BakeInput): BakeResult {
   const energy = calculateEnergy(input.energy)
-  const price = Math.max(0, input.pricePerKwh || 0)
+  // Strømprisen kan være negativ (negativ spotpris) – da blir strømkostnaden negativ
+  const price = Number.isFinite(input.pricePerKwh) ? input.pricePerKwh : 0
   const electricityCost = energy.totalKwh * price
 
   // Ved målt forbruk fordeles kostnaden proporsjonalt på delene

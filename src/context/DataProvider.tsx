@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { AppData, AppSettings, BakeLog, Id, Ingredient, Recipe } from '../types'
-import { createRepository } from '../services/storage'
+import type { DataRepository } from '../services/storage'
 import { emptyData } from '../lib/seed'
 import { defaultEnergyInput } from '../lib/defaults'
 import { DataContext, type CalculatorDraft } from './dataContext'
-
-const repo = createRepository()
 
 function upsert<T extends { id: Id }>(list: T[], item: T): T[] {
   return list.some((x) => x.id === item.id) ? list.map((x) => (x.id === item.id ? item : x)) : [...list, item]
 }
 
-export function DataProvider({ children }: { children: ReactNode }) {
+/**
+ * Data og handlinger for appen. `repository` er localStorage (uten innlogging)
+ * eller Supabase (innlogget). Komponenten monteres på nytt (key) ved bytte.
+ */
+export function DataProvider({ children, repository: repo }: { children: ReactNode; repository: DataRepository }) {
   const [data, setData] = useState<AppData>(emptyData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -33,19 +35,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Kunne ikke laste data.'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [repo])
 
-  /** Optimistisk oppdatering med tilbakerulling ved lagringsfeil. */
+  /**
+   * Optimistisk oppdatering. Feiler lagringen (f.eks. plangrense eller manglende
+   * tilgang i Supabase), hentes gjeldende data på nytt fra lagringen.
+   */
   const mutate = useCallback(async (local: (d: AppData) => AppData, persist: () => Promise<void>) => {
-    let previous: AppData | null = null
-    setData((d) => { previous = d; return local(d) })
+    setData(local)
     try {
       await persist()
     } catch (e) {
-      if (previous) setData(previous)
       setError(e instanceof Error ? e.message : 'Lagring feilet.')
+      try { setData(await repo.load()) } catch { /* behold visningen; feilen er allerede vist */ }
     }
-  }, [])
+  }, [repo])
 
   const value = useMemo(() => ({
     data, loading, error, draft,
@@ -59,7 +63,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     addLog: (l: BakeLog) => mutate((d) => ({ ...d, history: [l, ...d.history] }), () => repo.addLog(l)),
     deleteLog: (id: Id) => mutate((d) => ({ ...d, history: d.history.filter((x) => x.id !== id) }), () => repo.deleteLog(id)),
     replaceAll: (nd: AppData) => mutate(() => nd, () => repo.replaceAll(nd)),
-  }), [data, loading, error, draft, mutate])
+  }), [data, loading, error, draft, mutate, repo])
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }

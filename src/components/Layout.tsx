@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { BookOpen, Calculator, ChartColumn, History, LayoutDashboard, Menu, Settings, ShoppingBasket, Wheat, X, Zap } from 'lucide-react'
+import { BookOpen, Calculator, ChartColumn, History, LayoutDashboard, LogIn, Menu, Settings, Shield, ShoppingBasket, UserRound, Wheat, X, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { navigate, type RouteKey } from '../hooks/useRoute'
 import { useData, useFormat, useT } from '../hooks/useData'
@@ -7,6 +7,8 @@ import { usePriceData } from '../hooks/usePriceData'
 import type { TranslationKey } from '../locales'
 import { AREA_NAMES } from '../lib/defaults'
 import { formatOre } from '../utils/format'
+import { useAuth } from '../hooks/useAuth'
+import { PLAN_NAMES, trialDaysLeft } from '../lib/plans'
 
 const NAV: { key: RouteKey; label: TranslationKey; icon: LucideIcon }[] = [
   { key: 'oversikt', label: 'nav.overview', icon: LayoutDashboard },
@@ -28,6 +30,8 @@ export function Layout({ route, children }: { route: RouteKey; children: ReactNo
   const prices = usePriceData()
   const [open, setOpen] = useState(false)
   const area = data.settings.price.area
+  const auth = useAuth()
+  const days = trialDaysLeft(auth.activeOrg?.subscription)
 
   const go = (k: RouteKey) => { setOpen(false); navigate(k) }
 
@@ -49,6 +53,30 @@ export function Layout({ route, children }: { route: RouteKey; children: ReactNo
             </a>
           ))}
         </nav>
+        {auth.configured && (
+          <div className="account-box">
+            {auth.user ? (
+              <>
+                <a href="#/konto" className={route === 'konto' ? 'active' : ''} onClick={(e) => { e.preventDefault(); go('konto') }}>
+                  <UserRound size={18} aria-hidden />
+                  <span>
+                    {auth.context?.profile?.full_name ?? auth.user.email}
+                    <small>{auth.activeOrg?.name} · {PLAN_NAMES[auth.plan]}{days ? ` (prøve: ${days} d)` : ''}</small>
+                  </span>
+                </a>
+                {auth.isAdmin && (
+                  <a href="#/admin" className={route === 'admin' ? 'active' : ''} onClick={(e) => { e.preventDefault(); go('admin') }}>
+                    <Shield size={18} aria-hidden /> Administrasjon
+                  </a>
+                )}
+              </>
+            ) : (
+              <a href="#/logg-inn" className={route === 'logg-inn' ? 'active' : ''} onClick={(e) => { e.preventDefault(); go('logg-inn') }}>
+                <LogIn size={18} aria-hidden /> <span>Logg inn<small>Lagre i skyen · 30 dager Pro</small></span>
+              </a>
+            )}
+          </div>
+        )}
         <div className="sidebar-foot">
           <Zap size={16} aria-hidden />
           <div>
