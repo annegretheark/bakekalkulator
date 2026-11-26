@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Calculator, Clock, CookingPot, Gauge, Layers, Plus, Save, Trash2, Zap } from 'lucide-react'
-import { BAKE_TYPES, type BakeType, type EnergyInput } from '../types'
+import { BAKE_TYPES, type BakeType, type CustomerType, type EnergyInput } from '../types'
 import { useData, useFormat, useT } from '../hooks/useData'
 import { useBakeResult } from '../hooks/useBakeResult'
 import { Card, Notice, NumberField, PageHeader, Segmented, SelectField, TextField, Toggle } from '../components/ui'
@@ -8,11 +8,17 @@ import { ResultCards } from '../components/ResultCards'
 import { formatKwh, formatMoney, formatNumber, formatOre, formatTime, uid } from '../utils/format'
 import { navigate } from '../hooks/useRoute'
 import type { PriceBasis } from '../context/dataContext'
+import { withCustomerType } from '../utils/priceSettings'
+import { useAuth } from '../hooks/useAuth'
 
 export function CalculatorPage() {
   const t = useT()
   const f = useFormat()
-  const { data, draft, setDraft, addLog, upsertRecipe } = useData()
+  const { data, draft, setDraft, addLog, upsertRecipe, saveSettings } = useData()
+  const { activeOrg } = useAuth()
+  const ps = data.settings.price
+  // Medlemmer (ikke eier/admin) kan ikke endre organisasjonens strømoppsett – håndheves også i databasen
+  const priceReadOnly = activeOrg?.role === 'member'
   const { result, pricePerKwh, priceSource, fallback, recipe, window } = useBakeResult()
   const [saved, setSaved] = useState(false)
 
@@ -112,8 +118,24 @@ export function CalculatorPage() {
 
         <div className="stack">
           <Card title="Strømpris i beregningen" icon={Clock}>
-            <Segmented<PriceBasis> label="Strømpris" value={draft.priceBasis} onChange={(v) => setDraft((d) => ({ ...d, priceBasis: v }))}
-              options={[{ value: 'now', label: 'Nå' }, { value: 'average', label: 'Dagens snitt' }, { value: 'cheapest', label: 'Billigste tid' }]} />
+            <div className="field">
+              <span className="label">Kundetype</span>
+              <Segmented<CustomerType> label="Kundetype" value={ps.customerType} disabled={priceReadOnly}
+                onChange={(v) => { if (!priceReadOnly) saveSettings({ ...data.settings, price: withCustomerType(ps, v) }) }}
+                options={[{ value: 'bedrift', label: t('customerType.bedrift') }, { value: 'privat', label: t('customerType.privat') }]} />
+              <small className="muted">
+                {priceReadOnly
+                  ? 'Bare eier eller administrator kan endre kundetype.'
+                  : ps.customerType === 'bedrift'
+                    ? `Ingen Norgespris eller strømstøtte.${ps.vatDeductible ? ' Kostnad eks. mva.' : ''}`
+                    : 'Inkl. mva, med strømstøtte eller Norgespris.'}
+              </small>
+            </div>
+            <div className="field">
+              <span className="label">Pris i beregningen</span>
+              <Segmented<PriceBasis> label="Pris i beregningen" value={draft.priceBasis} onChange={(v) => setDraft((d) => ({ ...d, priceBasis: v }))}
+                options={[{ value: 'now', label: 'Nå' }, { value: 'average', label: 'Dagens snitt' }, { value: 'cheapest', label: 'Billigste tid' }]} />
+            </div>
             {window ? (
               <p className="callout">
                 Billigst å bake: <strong>{formatTime(window.start, f.locale)}–{formatTime(window.end, f.locale)}</strong>

@@ -6,5 +6,6 @@ import viteConfig from './vite.config'
 export default mergeConfig(viteConfig, defineConfig({
   test: {
     exclude: [...configDefaults.exclude, 'tests/pg/**'],
+    setupFiles: ['src/test/setupStorage.ts'],
   },
 }))

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import App from '../App'
 import { ROUTES } from '../hooks/useRoute'
 
@@ -54,6 +54,21 @@ describe('appen', () => {
       expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeTruthy()
       if (route === 'logg-inn') expect(screen.getAllByText(/Innlogging er ikke satt opp/).length).toBeGreaterThan(0)
     }
+  })
+
+  it('kalkulatoren har valg for privat eller bedrift som oppdaterer strømoppsettet', async () => {
+    await act(async () => { window.location.hash = '/kalkulator'; window.dispatchEvent(new HashChangeEvent('hashchange')) })
+    const group = await screen.findByRole('radiogroup', { name: 'Kundetype' })
+    const privat = within(group).getByRole('radio', { name: 'Privat' })
+    const bedrift = within(group).getByRole('radio', { name: 'Bedrift' })
+    expect(bedrift.getAttribute('aria-checked')).toBe('true')
+    await act(async () => { privat.click() })
+    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Kundetype' })).getByRole('radio', { name: 'Privat' }).getAttribute('aria-checked')).toBe('true'))
+    // Samme innstilling vises på strømprissiden
+    await act(async () => { window.location.hash = '/strompriser'; window.dispatchEvent(new HashChangeEvent('hashchange')) })
+    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Kundetype' })).getByRole('radio', { name: 'Privat' }).getAttribute('aria-checked')).toBe('true'))
+    await act(async () => { within(screen.getByRole('radiogroup', { name: 'Kundetype' })).getByRole('radio', { name: 'Bedrift' }).click() })
+    await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Kundetype' })).getByRole('radio', { name: 'Bedrift' }).getAttribute('aria-checked')).toBe('true'))
   })
 
   it('viser eksempeloppskriften med tre grovbrød', async () => {

@@ -159,11 +159,11 @@ export function Toggle({ label, checked, onChange, hint }: { label: string; chec
   )
 }
 
-export function Segmented<T extends string>({ value, onChange, options, label }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[]; label: string }) {
+export function Segmented<T extends string>({ value, onChange, options, label, disabled }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[]; label: string; disabled?: boolean }) {
   return (
     <div className="segmented" role="radiogroup" aria-label={label}>
       {options.map((o) => (
-        <button key={o.value} type="button" role="radio" aria-checked={value === o.value} className={value === o.value ? 'active' : ''} onClick={() => onChange(o.value)}>
+        <button key={o.value} type="button" role="radio" aria-checked={value === o.value} disabled={disabled} className={value === o.value ? 'active' : ''} onClick={() => onChange(o.value)}>
           {o.label}
         </button>
       ))}

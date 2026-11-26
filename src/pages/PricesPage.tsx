@@ -11,6 +11,7 @@ import { calculatePrice, effectiveMode, intervalMinutes, priceIntervals } from '
 import { formatMoney, formatOre, formatTime } from '../utils/format'
 import { useAuth } from '../hooks/useAuth'
 import { isTariffActive } from '../utils/tariffs'
+import { withCustomerType } from '../utils/priceSettings'
 import { osloDateKey } from '../services/priceApi'
 
 export function PricesPage() {
@@ -68,15 +69,7 @@ export function PricesPage() {
           <div className="field">
             <span className="label">Kundetype</span>
             <Segmented<CustomerType> label="Kundetype" value={ps.customerType}
-              onChange={(v) => setPrice({
-                ...ps,
-                customerType: v,
-                mode: v === 'bedrift' && ps.mode === 'norgespris' ? 'spot' : ps.mode,
-                // Husholdninger får strømstøtte automatisk
-                subsidy: v === 'privat' ? { ...ps.subsidy, enabled: true } : ps.subsidy,
-                // Mva-fritaket i Nord-Norge gjelder kun husholdninger
-                vatRatePercent: ps.area === 'NO4' ? (v === 'bedrift' ? 25 : 0) : ps.vatRatePercent,
-              })}
+              onChange={(v) => setPrice(withCustomerType(ps, v))}
               options={(['bedrift', 'privat'] as CustomerType[]).map((c) => ({ value: c, label: t(`customerType.${c}`) }))} />
             <small className="muted">{business ? `Ingen Norgespris eller strømstøtte.${ps.vatDeductible ? ' Kostnad vises eks. mva.' : ''}` : 'Husholdning: inkl. mva, med strømstøtte eller Norgespris.'}</small>
           </div>
