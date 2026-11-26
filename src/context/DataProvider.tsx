@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import type { AppData, AppSettings, BakeLog, Id, Ingredient, Recipe } from '../types'
 import type { DataRepository } from '../services/storage'
 import { emptyData } from '../lib/seed'
-import { defaultEnergyInput } from '../lib/defaults'
+import { defaultEnergyInput, defaultSalesDraft } from '../lib/defaults'
 import { DataContext, type CalculatorDraft } from './dataContext'
 
 function upsert<T extends { id: Id }>(list: T[], item: T): T[] {
@@ -18,7 +18,7 @@ export function DataProvider({ children, repository: repo }: { children: ReactNo
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [draft, setDraftState] = useState<CalculatorDraft>({
-    name: '', type: 'brod', count: 3, recipeId: null, storePricePerItem: 0, energy: defaultEnergyInput(), priceBasis: 'now',
+    name: '', type: 'brod', count: 3, recipeId: null, storePricePerItem: 0, energy: defaultEnergyInput(), priceBasis: 'now', sales: defaultSalesDraft(),
   })
 
   useEffect(() => {

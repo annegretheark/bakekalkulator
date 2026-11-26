@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from '../App'
 import { ROUTES } from '../hooks/useRoute'
 
@@ -69,6 +69,33 @@ describe('appen', () => {
     await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Kundetype' })).getByRole('radio', { name: 'Privat' }).getAttribute('aria-checked')).toBe('true'))
     await act(async () => { within(screen.getByRole('radiogroup', { name: 'Kundetype' })).getByRole('radio', { name: 'Bedrift' }).click() })
     await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Kundetype' })).getByRole('radio', { name: 'Bedrift' }).getAttribute('aria-checked')).toBe('true'))
+  })
+
+  it('bedrift får pris og fortjeneste på kalkulatorsiden; privat ser det ikke', async () => {
+    const go = async (r: string) => act(async () => { window.location.hash = `/${r}`; window.dispatchEvent(new HashChangeEvent('hashchange')) })
+    const kundetype = (name: 'Privat' | 'Bedrift') => within(screen.getByRole('radiogroup', { name: 'Kundetype' })).getByRole('radio', { name })
+    await go('kalkulator')
+    await screen.findByRole('radiogroup', { name: 'Kundetype' })
+    if (kundetype('Bedrift').getAttribute('aria-checked') !== 'true') await act(async () => { kundetype('Bedrift').click() })
+    expect(await screen.findByRole('heading', { name: /Pris og fortjeneste/ })).toBeTruthy()
+    // Uten utsalgspris: anbefalt pris vises, fortjeneste ikke
+    expect(screen.getByText(/Anbefalt pris \(30 % margin\)/)).toBeTruthy()
+    expect(screen.queryByText(/^Fortjenestemargin$/)).toBeNull()
+    // Fyll inn utsalgspris → fortjeneste, margin og påslag vises
+    const price = screen.getByLabelText(/Utsalgspris per stk/) as HTMLInputElement
+    await act(async () => { fireEvent.change(price, { target: { value: '80' } }) })
+    await waitFor(() => expect(screen.getByText(/^Fortjenestemargin$/)).toBeTruthy())
+    expect(screen.getByText(/^Påslag$/)).toBeTruthy()
+    // Salgssiden starter med samme utsalgspris
+    await go('salg')
+    const salesPrice = await screen.findByLabelText(/Utsalgspris per stk/) as HTMLInputElement
+    expect(salesPrice.value).toBe('80')
+    // Privat: kortet vises ikke
+    await go('kalkulator')
+    await screen.findByRole('radiogroup', { name: 'Kundetype' })
+    await act(async () => { kundetype('Privat').click() })
+    await waitFor(() => expect(screen.queryByRole('heading', { name: /Pris og fortjeneste/ })).toBeNull())
+    await act(async () => { kundetype('Bedrift').click() })
   })
 
   it('viser eksempeloppskriften med tre grovbrød', async () => {

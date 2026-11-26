@@ -22,16 +22,17 @@ export function SalesPage() {
     units: draft.count,
     ingredientCost: Math.round(result.ingredientCost * 100) / 100,
     electricityCost: Math.round(result.electricityCost * 100) / 100,
-    packagingPerUnit: 3,
-    laborHours: 1,
-    hourlyRate: 250,
+    // Samme salgsfelt som i kalkulatoren, så tallene stemmer overens
+    packagingPerUnit: draft.sales.packagingPerUnit,
+    laborHours: draft.sales.laborHours,
+    hourlyRate: draft.sales.hourlyRate,
     transport: 0,
-    wastePercent: 5,
+    wastePercent: 0,
     otherCosts: 0,
-    pricePerUnit: 89,
-    priceIncludesVat: true,
-    vatRatePercent: 15,
-    targetMarginPercent: 30,
+    pricePerUnit: draft.sales.pricePerUnit,
+    priceIncludesVat: draft.sales.priceIncludesVat,
+    vatRatePercent: draft.sales.vatRatePercent,
+    targetMarginPercent: draft.sales.targetMarginPercent,
   }))
   const set = <K extends keyof SalesInput>(k: K, v: SalesInput[K]) => setInput((i) => ({ ...i, [k]: v }))
   const r = useMemo(() => calculateSales(input), [input])

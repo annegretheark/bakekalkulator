@@ -81,6 +81,19 @@ export function defaultSettings(): AppSettings {
   }
 }
 
+/** Standard salgsfelt. Mva-satsen for næringsmidler må kontrolleres av brukeren. */
+export function defaultSalesDraft() {
+  return {
+    pricePerUnit: 0,
+    priceIncludesVat: true,
+    vatRatePercent: 15,
+    targetMarginPercent: 30,
+    packagingPerUnit: 0,
+    laborHours: 0,
+    hourlyRate: 0,
+  }
+}
+
 export function defaultEnergyInput(): EnergyInput {
   return {
     ovenWatt: 2500,

@@ -5,6 +5,8 @@ import { useData, useFormat, useT } from '../hooks/useData'
 import { useBakeResult } from '../hooks/useBakeResult'
 import { Card, Notice, NumberField, PageHeader, Segmented, SelectField, TextField, Toggle } from '../components/ui'
 import { ResultCards } from '../components/ResultCards'
+import { SalesSummaryCard } from '../components/SalesSummaryCard'
+import { canUse } from '../lib/plans'
 import { formatKwh, formatMoney, formatNumber, formatOre, formatTime, uid } from '../utils/format'
 import { navigate } from '../hooks/useRoute'
 import type { PriceBasis } from '../context/dataContext'
@@ -15,7 +17,10 @@ export function CalculatorPage() {
   const t = useT()
   const f = useFormat()
   const { data, draft, setDraft, addLog, upsertRecipe, saveSettings } = useData()
-  const { activeOrg } = useAuth()
+  const auth = useAuth()
+  const { activeOrg } = auth
+  // Salgsberegning: Plus/Pro (prøveperioden gir Pro). Uten Supabase (lokal modus) er alt åpent.
+  const salesAllowed = !auth.configured || canUse(auth.plan, 'salesCalculator')
   const ps = data.settings.price
   // Medlemmer (ikke eier/admin) kan ikke endre organisasjonens strømoppsett – håndheves også i databasen
   const priceReadOnly = activeOrg?.role === 'member'
@@ -144,6 +149,18 @@ export function CalculatorPage() {
             ) : <p className="muted small">Billigste tidspunkt krever spotpriser for resten av døgnet.</p>}
             <button className="link" onClick={() => navigate('strompriser')}>Se prisgraf og prisoppbygging →</button>
           </Card>
+
+          {ps.customerType === 'bedrift' && (
+            <SalesSummaryCard
+              sales={draft.sales}
+              onChange={(s) => setDraft((d) => ({ ...d, sales: s }))}
+              units={draft.count}
+              ingredientCost={result.ingredientCost}
+              electricityCost={result.electricityCost}
+              allowed={salesAllowed}
+              loggedIn={!!auth.user}
+            />
+          )}
 
           <Card title="Strømforbruk per del" icon={Calculator}>
             <table className="clean">

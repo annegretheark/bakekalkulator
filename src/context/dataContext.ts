@@ -3,6 +3,17 @@ import type { AppData, AppSettings, BakeLog, BakeType, EnergyInput, Id, Ingredie
 
 export type PriceBasis = 'now' | 'average' | 'cheapest'
 
+/** Salgsfelt for bedrifter – deles mellom kalkulatoren og «Salg og fortjeneste». */
+export interface SalesDraft {
+  pricePerUnit: number
+  priceIncludesVat: boolean
+  vatRatePercent: number
+  targetMarginPercent: number
+  packagingPerUnit: number
+  laborHours: number
+  hourlyRate: number
+}
+
 /** Kalkulatorens arbeidsdata – deles mellom sidene (f.eks. til Salg og Oversikt). */
 export interface CalculatorDraft {
   name: string
@@ -12,6 +23,7 @@ export interface CalculatorDraft {
   storePricePerItem: number
   energy: EnergyInput
   priceBasis: PriceBasis
+  sales: SalesDraft
 }
 
 export interface DataContextValue {
