@@ -305,6 +305,20 @@ Viktige constraints:
 | Utstyrsregister (`equipment`) | – | Lokal app har ikke eget utstyrsregister. Utstyr ligger i oppskriftenes `energy` |
 | Innstillinger (strømoppsett, bakefrekvens) | – | **Mangler.** Bevisst ikke overskrevet, fordi strømoppsettet er felles for organisasjonen |
 
+### E-post (Resend og norske maler)
+
+E-post sendes via Resend fra `noreply@rettilomma.com` (Authentication → Emails → SMTP Settings: host `smtp.resend.com`, port `465`, brukernavn `resend`, passord = Resend API-nøkkel). Nøkkelen legges kun inn i Dashboard – aldri i koden.
+
+Norske maler ligger i `supabase/templates/` og brukes automatisk lokalt (`config.toml`). For det eksterne prosjektet limes de inn under **Authentication → Emails → Templates**:
+
+| Mal i Dashboard | Emne | Fil |
+|---|---|---|
+| Confirm signup | `Bekreft e-postadressen din – Rett i lomma` | `confirmation.html` |
+| Reset password | `Tilbakestill passordet ditt – Rett i lomma` | `recovery.html` |
+| Change email address | `Bekreft ny e-postadresse – Rett i lomma` | `email_change.html` |
+
+Malene bruker Supabase-variablene `{{ .ConfirmationURL }}`, `{{ .Email }}`, `{{ .NewEmail }}`, `{{ .SiteURL }}` og navnet fra registreringen (`{{ .Data.full_name }}`, utelates hvis det mangler).
+
 ### Manuelle innstillinger i Supabase Dashboard
 
 1. **Authentication → Sign In / Providers → Email:** *Confirm email* på.

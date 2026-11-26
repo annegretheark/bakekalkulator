@@ -42,3 +42,17 @@ enable_confirmations = true
 double_confirm_changes = true
 secure_password_change = true
 max_frequency = "60s"
+
+# Norske e-postmaler (lokalt). Samme maler og emner limes inn i Dashboard for
+# det eksterne prosjektet: Authentication → Emails → Templates.
+[auth.email.template.confirmation]
+subject = "Bekreft e-postadressen din – Rett i lomma"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Tilbakestill passordet ditt – Rett i lomma"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.email_change]
+subject = "Bekreft ny e-postadresse – Rett i lomma"
+content_path = "./supabase/templates/email_change.html"
