@@ -77,7 +77,7 @@ describe('appen', () => {
     await go('kalkulator')
     await screen.findByRole('radiogroup', { name: 'Kundetype' })
     if (kundetype('Bedrift').getAttribute('aria-checked') !== 'true') await act(async () => { kundetype('Bedrift').click() })
-    expect(await screen.findByRole('heading', { name: /Pris og fortjeneste/ })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: /^Pris og fortjeneste$/, level: 2 })).toBeTruthy()
     // Uten utsalgspris: anbefalt pris vises, fortjeneste ikke
     expect(screen.getByText(/Anbefalt pris \(30 % margin\)/)).toBeTruthy()
     expect(screen.queryByText(/^Fortjenestemargin$/)).toBeNull()
@@ -94,7 +94,7 @@ describe('appen', () => {
     await go('kalkulator')
     await screen.findByRole('radiogroup', { name: 'Kundetype' })
     await act(async () => { kundetype('Privat').click() })
-    await waitFor(() => expect(screen.queryByRole('heading', { name: /Pris og fortjeneste/ })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('heading', { name: /^Pris og fortjeneste$/, level: 2 })).toBeNull())
     await act(async () => { kundetype('Bedrift').click() })
   })
 
