@@ -1,0 +1,11 @@
+{
+  "name": "Rett i lomma – Bakekalkulator",
+  "short_name": "Bakekalkulator",
+  "description": "Beregn hva hjemmebakst koster i strøm og ingredienser.",
+  "lang": "nb",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#faf6ee",
+  "theme_color": "#2f5240",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
