@@ -102,4 +102,18 @@ describe('appen', () => {
     await act(async () => { window.location.hash = '/oppskrifter'; window.dispatchEvent(new HashChangeEvent('hashchange')) })
     expect((await screen.findAllByText('Tre grove brød')).length).toBeGreaterThan(0)
   })
+
+  it('har skanning av oppskrift, kvittering og strekkode (åpent i lokal modus)', async () => {
+    const go = async (r: string) => act(async () => { window.location.hash = `/${r}`; window.dispatchEvent(new HashChangeEvent('hashchange')) })
+    await go('oppskrifter')
+    await act(async () => { (await screen.findByRole('button', { name: /Skann oppskrift/ })).click() })
+    expect(await screen.findByRole('heading', { level: 2, name: /Skann oppskrift/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Ta bilde \/ velg bilder/ })).toBeTruthy()
+    expect(screen.queryByText(/er med i Pro/)).toBeNull()
+
+    await go('ingredienser')
+    expect(await screen.findByRole('button', { name: /Skann strekkode/ })).toBeTruthy()
+    await act(async () => { screen.getByRole('button', { name: /Skann kvittering/ }).click() })
+    expect(await screen.findByRole('button', { name: /Ta bilde av kvittering/ })).toBeTruthy()
+  })
 })

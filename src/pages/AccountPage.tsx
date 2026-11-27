@@ -100,6 +100,7 @@ function PlanTable({ current }: { current: Plan }) {
           <tr><td>Ingredienser</td>{(['free', 'plus', 'pro'] as Plan[]).map((p) => <td key={p} className="num">{lim(PLAN_FEATURES[p].maxIngredients)}</td>)}</tr>
           <tr><td>Brukere (bedrift)</td>{(['free', 'plus', 'pro'] as Plan[]).map((p) => <td key={p} className="num">{PLAN_FEATURES[p].maxMembers}</td>)}</tr>
           <tr><td>Salg og fortjeneste</td>{(['free', 'plus', 'pro'] as Plan[]).map((p) => <td key={p} className="num">{PLAN_FEATURES[p].salesCalculator ? 'Ja' : '–'}</td>)}</tr>
+          <tr><td>Skanning av oppskrifter og kvitteringer</td>{(['free', 'plus', 'pro'] as Plan[]).map((p) => <td key={p} className="num">{PLAN_FEATURES[p].scanning ? 'Ja' : '–'}</td>)}</tr>
         </tbody>
       </table>
     </div>

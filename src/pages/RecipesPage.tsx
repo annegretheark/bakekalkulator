@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, BookOpen, Calculator, Clock, Copy, Pencil, Plus, Scale, Trash2, Wheat } from 'lucide-react'
+import { ArrowLeft, BookOpen, Calculator, Clock, Copy, Pencil, Plus, Scale, ScanText, Trash2, Wheat } from 'lucide-react'
 import { BAKE_TYPES, UNITS, type BakeType, type Recipe, type Unit } from '../types'
 import { useData, useFormat, useT } from '../hooks/useData'
 import { usePriceData } from '../hooks/usePriceData'
@@ -9,6 +9,7 @@ import { computeBake } from '../utils/bake'
 import { formatMoney, formatNumber, uid } from '../utils/format'
 import { isCompatible } from '../utils/units'
 import { navigate } from '../hooks/useRoute'
+import { RecipeScanPanel } from '../components/ScanPanels'
 
 const newRecipe = (): Recipe => {
   const now = new Date().toISOString()
@@ -23,6 +24,8 @@ export function RecipesPage() {
   const [editing, setEditing] = useState<Recipe | null>(null)
   const [viewing, setViewing] = useState<string | null>(null)
   const [scaleTo, setScaleTo] = useState<number | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [scanInfo, setScanInfo] = useState<string | null>(null)
   const price = prices.todayAverage ?? prices.currentTotal ?? data.settings.price.manualTotalKrPerKwh
 
   const cost = (r: Recipe, count = r.yieldCount) => computeBake({
@@ -50,6 +53,7 @@ export function RecipesPage() {
       <>
         <PageHeader title={data.recipes.some((r) => r.id === e.id) ? 'Rediger oppskrift' : 'Ny oppskrift'}
           actions={<button className="btn ghost" onClick={() => setEditing(null)}><ArrowLeft size={16} /> Tilbake</button>} />
+        {scanInfo && <Notice>{scanInfo}</Notice>}
         <div className="grid-2 wide-left">
           <div className="stack">
             <Card title="Grunninfo" icon={BookOpen}>
@@ -113,8 +117,8 @@ export function RecipesPage() {
               <p className="muted small">Strøm estimeres med oppskriftens ovnsoppsett og dagens snittpris. Ovnsoppsettet justeres og lagres fra kalkulatoren.</p>
             </Card>
             <div className="actions">
-              <button className="btn primary" disabled={!valid} onClick={async () => { await upsertRecipe({ ...e, name: e.name.trim(), steps: e.steps.filter((s) => s.trim()), updatedAt: new Date().toISOString() }); setEditing(null); setViewing(e.id) }}>Lagre oppskrift</button>
-              <button className="btn ghost" onClick={() => setEditing(null)}>Avbryt</button>
+              <button className="btn primary" disabled={!valid} onClick={async () => { setScanInfo(null); await upsertRecipe({ ...e, name: e.name.trim(), steps: e.steps.filter((s) => s.trim()), updatedAt: new Date().toISOString() }); setEditing(null); setViewing(e.id) }}>Lagre oppskrift</button>
+              <button className="btn ghost" onClick={() => { setEditing(null); setScanInfo(null) }}>Avbryt</button>
             </div>
           </div>
         </div>
@@ -182,7 +186,17 @@ export function RecipesPage() {
   return (
     <>
       <PageHeader title="Mine oppskrifter" description="Kostnadene beregnes automatisk fra ingrediensregisteret og dagens strømpris."
-        actions={<button className="btn primary" onClick={() => setEditing(newRecipe())}><Plus size={18} /> Ny oppskrift</button>} />
+        actions={<>
+          <button className="btn ghost" onClick={() => setScanning(true)}><ScanText size={18} /> Skann oppskrift</button>
+          <button className="btn primary" onClick={() => setEditing(newRecipe())}><Plus size={18} /> Ny oppskrift</button>
+        </>} />
+      {scanning && (
+        <RecipeScanPanel onCancel={() => setScanning(false)} onDone={(r, created) => {
+          setScanning(false)
+          setScanInfo(`Oppskriften er tolket fra bildet. Kontroller ingredienser, mengder og steg før du lagrer.${created ? ` ${created} ny(e) ingrediens(er) er lagt til uten pris – oppdater prisen under Ingredienser.` : ''}`)
+          setEditing(r)
+        }} />
+      )}
       {data.recipes.length === 0 ? (
         <EmptyState icon={BookOpen} title="Ingen oppskrifter ennå" text="Lag din første oppskrift, så ser du hva hver bakst faktisk koster."
           action={<button className="btn primary" onClick={() => setEditing(newRecipe())}><Plus size={18} /> Ny oppskrift</button>} />

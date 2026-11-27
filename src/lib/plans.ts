@@ -10,12 +10,17 @@ export interface PlanFeatures {
   maxIngredients: number | null
   maxMembers: number
   salesCalculator: boolean
+  /**
+   * Skanning av oppskrifter, kvitteringer og strekkoder. Kjører helt i nettleseren
+   * (ingen serverkostnad), så den styres bare i grensesnittet og finnes ikke i plan_features.
+   */
+  scanning: boolean
 }
 
 export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
-  free: { maxRecipes: 5, maxIngredients: 50, maxMembers: 1, salesCalculator: false },
-  plus: { maxRecipes: 50, maxIngredients: 500, maxMembers: 3, salesCalculator: true },
-  pro: { maxRecipes: null, maxIngredients: null, maxMembers: 25, salesCalculator: true },
+  free: { maxRecipes: 5, maxIngredients: 50, maxMembers: 1, salesCalculator: false, scanning: false },
+  plus: { maxRecipes: 50, maxIngredients: 500, maxMembers: 3, salesCalculator: true, scanning: false },
+  pro: { maxRecipes: null, maxIngredients: null, maxMembers: 25, salesCalculator: true, scanning: true },
 }
 
 export const PLAN_NAMES: Record<Plan, string> = { free: 'Free', plus: 'Plus', pro: 'Pro' }
@@ -51,6 +56,6 @@ export function trialDaysLeft(s: SubscriptionInfo | null | undefined, now = new 
   return ms > 0 ? Math.ceil(ms / 86_400_000) : 0
 }
 
-export function canUse(plan: Plan, feature: 'salesCalculator'): boolean {
+export function canUse(plan: Plan, feature: 'salesCalculator' | 'scanning'): boolean {
   return PLAN_FEATURES[plan][feature]
 }

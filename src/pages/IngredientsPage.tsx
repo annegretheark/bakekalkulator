@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
-import { Pencil, Plus, Search, ShoppingBasket, Trash2 } from 'lucide-react'
+import { Barcode, Pencil, Plus, Receipt, Search, ShoppingBasket, Trash2 } from 'lucide-react'
 import { UNITS, type Ingredient, type Unit } from '../types'
 import { useData, useFormat } from '../hooks/useData'
 import { Card, EmptyState, Notice, NumberField, PageHeader, SelectField, TextField } from '../components/ui'
 import { formatDate, formatMoney, formatNumber, toLocalDateKey, uid } from '../utils/format'
 import { unitDimension } from '../utils/units'
+import { PhotoButton, ReceiptScanPanel, ScanLocked } from '../components/ScanPanels'
+import { useScanAllowed } from '../hooks/useScanAllowed'
+import { decodeBarcode, lookupProduct } from '../services/scan'
 
 const blank = (): Ingredient => ({ id: uid(), name: '', category: '', packageSize: 1, unit: 'kg', price: 0, store: '', priceUpdated: toLocalDateKey(new Date()) })
 
@@ -21,6 +24,34 @@ export function IngredientsPage() {
   const { data, upsertIngredient, deleteIngredient } = useData()
   const [editing, setEditing] = useState<Ingredient | null>(null)
   const [query, setQuery] = useState('')
+  const [receipt, setReceipt] = useState(false)
+  const [info, setInfo] = useState<{ tone: 'info' | 'warn' | 'error'; text: string } | null>(null)
+  const [barcodeBusy, setBarcodeBusy] = useState(false)
+  const [showLocked, setShowLocked] = useState(false)
+  const scan = useScanAllowed()
+
+  const scanBarcode = async (files: File[]) => {
+    setInfo(null)
+    setBarcodeBusy(true)
+    try {
+      const ean = await decodeBarcode(files[0])
+      if (!ean) { setInfo({ tone: 'warn', text: 'Fant ingen strekkode i bildet. Ta bildet nærmere og rett på strekkoden.' }); return }
+      const product = await lookupProduct(ean).catch(() => null)
+      if (!product) {
+        setEditing(blank())
+        setInfo({ tone: 'warn', text: `Strekkode ${ean} ble ikke funnet i varedatabasen. Fyll inn varen selv.` })
+        return
+      }
+      const withBrand = product.brand && !product.name.toLowerCase().includes(product.brand.toLowerCase()) ? `${product.name} (${product.brand})` : product.name
+      setEditing({ ...blank(), name: withBrand, packageSize: product.packageSize ?? 1, unit: product.unit ?? 'stk', category: product.category })
+      setInfo({ tone: 'info', text: `Fant «${product.name}». Kontroller pakningsstørrelsen og legg inn prisen du betalte.` })
+    } catch (e) {
+      console.error(e)
+      setInfo({ tone: 'error', text: 'Klarte ikke å lese strekkoden. Prøv igjen.' })
+    } finally {
+      setBarcodeBusy(false)
+    }
+  }
 
   const usedIn = useMemo(() => {
     const m = new Map<string, number>()
@@ -41,6 +72,7 @@ export function IngredientsPage() {
     const priceChanged = !prev || prev.price !== editing.price || prev.packageSize !== editing.packageSize
     await upsertIngredient({ ...editing, name: editing.name.trim(), priceUpdated: priceChanged ? toLocalDateKey(new Date()) : editing.priceUpdated })
     setEditing(null)
+    setInfo(null)
   }
 
   const remove = (i: Ingredient) => {
@@ -51,7 +83,17 @@ export function IngredientsPage() {
   return (
     <>
       <PageHeader title="Ingredienser" description="Registrer innkjøpspriser. Kostnaden i oppskriftene beregnes automatisk ut fra mengden du bruker."
-        actions={<button className="btn primary" onClick={() => setEditing(blank())}><Plus size={18} /> Ny ingrediens</button>} />
+        actions={<>
+          <button className="btn ghost" onClick={() => { setReceipt(true); setInfo(null) }}><Receipt size={18} /> Skann kvittering</button>
+          {scan.allowed
+            ? <PhotoButton label={barcodeBusy ? 'Leser strekkode …' : 'Skann strekkode'} className="btn ghost" icon={<Barcode size={18} />} onFiles={scanBarcode} />
+            : <button className="btn ghost" onClick={() => setShowLocked(true)}><Barcode size={18} /> Skann strekkode</button>}
+          <button className="btn primary" onClick={() => setEditing(blank())}><Plus size={18} /> Ny ingrediens</button>
+        </>} />
+
+      {showLocked && !scan.allowed && <ScanLocked loggedIn={scan.loggedIn} />}
+      {info && <Notice tone={info.tone}>{info.text}</Notice>}
+      {receipt && <ReceiptScanPanel onClose={(msg) => { setReceipt(false); if (msg) setInfo({ tone: 'info', text: msg }) }} />}
 
       {editing && (
         <Card title={data.ingredients.some((i) => i.id === editing.id) ? 'Rediger ingrediens' : 'Ny ingrediens'} icon={ShoppingBasket}>
@@ -71,7 +113,7 @@ export function IngredientsPage() {
           <Notice>Vekt og volum regnes ikke om til hverandre. Registrer ingrediensen i samme type enhet som du bruker i oppskriften (f.eks. mel i kg/g, melk i l/dl).</Notice>
           <div className="actions">
             <button className="btn primary" disabled={!valid} onClick={save}>Lagre</button>
-            <button className="btn ghost" onClick={() => setEditing(null)}>Avbryt</button>
+            <button className="btn ghost" onClick={() => { setEditing(null); setInfo(null) }}>Avbryt</button>
           </div>
         </Card>
       )}

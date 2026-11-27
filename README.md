@@ -35,13 +35,22 @@ npm run deploy   # bygger med .env.local og publiserer (cf deploy)
 | Side | Innhold |
 |---|---|
 | Oversikt | Strømpris nå, billigste bakevindu, gjeldende kalkyle, totalstatistikk, prisgraf og siste bakinger |
-| Bakekalkulator | Ovn, forvarming, steking, omganger, kjøkkenmaskin, annet utstyr og målt forbruk. Kostnad per del, ingredienser, resultatkort og «bak flere samtidig» |
+| Bakekalkulator | Én eller flere ovner, forvarming, steking, omganger, kjøkkenmaskin, annet utstyr og målt forbruk. Kostnad per del, ingredienser, resultatkort og «bak flere samtidig» |
 | Strømpriser | Kundetype (bedrift/privat), prisområde NO1–NO5, avtaletype (spot, Norgespris for privat, fastpris, manuell), graf, prisoppbygging og konfigurerbare tillegg |
-| Mine oppskrifter | Opprette, redigere, kopiere og slette. Ingredienser, fremgangsmåte, hevetid, steketid, butikkpris og skalering |
-| Ingredienser | Register med kategori, pakning, enhet, pris, butikk og prisdato |
+| Mine oppskrifter | Opprette, redigere, kopiere og slette. Ingredienser, fremgangsmåte, hevetid, steketid, butikkpris og skalering. **Skann oppskrift** fra bilde (Pro) |
+| Ingredienser | Register med kategori, pakning, enhet, pris, butikk og prisdato. **Skann kvittering** og **skann strekkode** (Pro) |
 | Bakehistorikk | Lagrede bakinger som øyeblikksbilder, med statistikk for uke, måned og år |
 | Salg og fortjeneste | Kostnader, svinn, arbeid, mva, margin, påslag og anbefalt pris |
 | Innstillinger | Bakefrekvens, reservepris, språk/valuta, eksport/import og tilbakestilling |
+
+### Skanning (Pro)
+
+All skanning kjører i nettleseren på telefonen. Bildene sendes ikke til noen server.
+
+- **Tekstgjenkjenning (OCR)** gjøres med [Tesseract.js](https://github.com/naptha/tesseract.js) og norsk språkdata. Biblioteket, WebAssembly-kjernen og språkdataene (noen MB) lastes fra jsDelivr første gang og caches av nettleseren.
+- **Tolkning** skjer i `src/utils/scanParse.ts`, med regler for mengder, enheter (ss, ts og krm regnes om til ml; pk og egg blir stk), antall, steg, temperatur og steketid, og for kvitteringslinjer med pakningsstørrelse. Funnene kobles til ingrediensregisteret med en enkel likhetsmatch. Brukeren kontrollerer alltid resultatet før noe lagres.
+- **Strekkoder** leses med nettleserens `BarcodeDetector`. Der den mangler (bl.a. iPhone), brukes `barcode-detector`, en WebAssembly-versjon av ZXing. Varen slås opp i [Open Food Facts](https://world.openfoodfacts.org); bare strekkoden sendes. Databasen har ikke priser, så prisen legges inn av brukeren.
+- Tilgangen styres i grensesnittet (`PLAN_FEATURES.scanning`). Siden funksjonen ikke bruker serveren, finnes den ikke i `plan_features`.
 
 ## Arkitektur
 
