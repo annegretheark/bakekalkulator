@@ -10,6 +10,15 @@ import {
  * Lagring i Supabase for innloggede brukere. All tilgang kontrolleres av
  * Row Level Security – klienten sender kun organization_id den er medlem av.
  */
+/**
+ * cost_settings har bare rollenavn og ferdig timekostnad. Eier og administrator
+ * får i tillegg lønnsdetaljene fra staff_wages, som da erstatter rollene.
+ */
+export function withWageDetails(costs: Partial<CostSettings> | null, wageRoles: unknown): Partial<CostSettings> | null {
+  if (!Array.isArray(wageRoles) || wageRoles.length === 0) return costs
+  return { ...(costs ?? {}), staffRoles: wageRoles as CostSettings['staffRoles'] }
+}
+
 export class SupabaseRepository implements DataRepository {
   private client: SupabaseClient
   private organizationId: string
@@ -31,7 +40,7 @@ export class SupabaseRepository implements DataRepository {
   async load(): Promise<AppData> {
     const org = this.organizationId
     const yearAgo = new Date(Date.now() - 366 * 86_400_000).toISOString().slice(0, 10)
-    const [user, price, ingredients, recipes, history, equipment, organization, costs, menus, suppliers, prices, levels, moves, waste] = await Promise.all([
+    const [user, price, ingredients, recipes, history, equipment, organization, costs, menus, suppliers, prices, levels, moves, waste, wages] = await Promise.all([
       this.client.from('user_settings').select('locale, currency, bakes_per_month').eq('user_id', this.userId).maybeSingle(),
       this.client.from('electricity_settings').select('settings').eq('organization_id', org).maybeSingle(),
       this.client.from('ingredients').select('*').eq('organization_id', org).order('name'),
@@ -46,6 +55,8 @@ export class SupabaseRepository implements DataRepository {
       this.client.from('stock_levels').select('ingredient_id, quantity').eq('organization_id', org),
       this.client.from('stock_movements').select('*').eq('organization_id', org).order('moved_at', { ascending: false }).limit(1000),
       this.client.from('waste_logs').select('*').eq('organization_id', org).gte('logged_at', yearAgo).order('logged_at', { ascending: false }).limit(5000),
+      // Lønnsdetaljer: bare eier og administrator får rader (RLS). Medlemmer får ingen.
+      this.client.from('staff_wages').select('roles').eq('organization_id', org).maybeSingle(),
     ])
     return buildAppData({
       user: this.check(user) as UserSettingsRow | null,
@@ -58,7 +69,8 @@ export class SupabaseRepository implements DataRepository {
       history: this.check(history) as HistoryRow[],
       equipment: this.check(equipment) as EquipmentRow[],
       // Tåler at fase 2-migrasjonen ikke er kjørt ennå (tabellene mangler)
-      costs: costs.error ? null : (costs.data as { settings: Partial<CostSettings> } | null)?.settings ?? null,
+      costs: withWageDetails(costs.error ? null : (costs.data as { settings: Partial<CostSettings> } | null)?.settings ?? null,
+        wages.error ? null : (wages.data as { roles: unknown } | null)?.roles ?? null),
       menus: menus.error ? [] : (menus.data as MenuRow[]),
       // Tåler at fase 4-migrasjonen ikke er kjørt ennå
       suppliers: suppliers.error ? [] : (suppliers.data as SupplierRow[]),

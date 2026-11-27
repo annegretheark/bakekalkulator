@@ -54,7 +54,12 @@ export function CostsPage() {
           Legg inn én rad per rolle eller ansattgruppe. Velg «Detaljert» for å regne ut timekostnaden fra timelønn, eller «Ferdig sats» hvis du allerede kjenner timekostnaden.
           Arbeidstiden registreres i hver oppskrift og fordeles på antall stk eller porsjoner.
         </p>
-        {draft.staffRoles.map((r) => {
+        {readOnly && (
+          draft.staffRoles.length === 0
+            ? <p className="muted">Ingen roller er registrert ennå.</p>
+            : <p>Roller du kan bruke når du registrerer arbeidstid i oppskriftene: <strong>{draft.staffRoles.map((r) => r.name).join(', ')}</strong>. Timelønn og satser ser bare eier og administrator.</p>
+        )}
+        {!readOnly && draft.staffRoles.map((r) => {
           const h = hourlyCost(r)
           return (
             <fieldset key={r.id} className="cost-role" disabled={readOnly}>

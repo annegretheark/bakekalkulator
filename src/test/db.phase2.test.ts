@@ -170,6 +170,53 @@ describe('personal- og driftskostnader', () => {
   })
 })
 
+describe('timelønn bare for eier og administrator', () => {
+  const role = { id: 'kokk', name: 'Kokk', mode: 'detaljert', hourlyWage: 200, holidayPayPercent: 12, pensionPercent: 2, employerTaxPercent: 14.1, otherPercent: 5, fixedHourlyCost: 0 }
+  const fixed = { id: 'serv', name: 'Servitør', mode: 'ferdig', hourlyWage: 999, fixedHourlyCost: 330 }
+
+  beforeAll(async () => {
+    await t.as(owner, 'select public.save_cost_settings($1, $2)', [bizOrg, { staffRoles: [role, fixed], operatingCosts: [], unitsPerMonth: 100 }])
+  })
+
+  it('medlemmer får bare rollenavn og ferdig timekostnad, ingen lønnsdetaljer', async () => {
+    const s = (await t.as<{ settings: { staffRoles: Record<string, unknown>[]; unitsPerMonth: number } }>(staff, 'select settings from public.cost_settings where organization_id = $1', [bizOrg]))[0].settings
+    expect(s.unitsPerMonth).toBe(100)
+    expect(s.staffRoles).toHaveLength(2)
+    for (const r of s.staffRoles) {
+      expect(Object.keys(r).sort()).toEqual(['fixedHourlyCost', 'id', 'mode', 'name'])
+      expect(r.mode).toBe('ferdig')
+    }
+    // 200 × 1,14 × 1,141 + 200 × 0,05 = 270,148
+    expect(Number(s.staffRoles[0].fixedHourlyCost)).toBeCloseTo(270.148, 3)
+    expect(Number(s.staffRoles[1].fixedHourlyCost)).toBe(330)
+    expect(JSON.stringify(s)).not.toContain('hourlyWage')
+  })
+
+  it('medlemmer kan ikke lese lønnstabellen; eier kan', async () => {
+    expect(await t.as(staff, 'select * from public.staff_wages where organization_id = $1', [bizOrg])).toHaveLength(0)
+    const w = (await t.as<{ roles: Record<string, unknown>[] }>(owner, 'select roles from public.staff_wages where organization_id = $1', [bizOrg]))[0].roles
+    expect(w[0]).toMatchObject({ hourlyWage: 200, holidayPayPercent: 12 })
+    expect(await t.as(other, 'select * from public.staff_wages where organization_id = $1', [bizOrg])).toHaveLength(0)
+  })
+
+  it('ingen kan skrive direkte i lønnstabellen', async () => {
+    await expect(t.as(owner, `update public.staff_wages set roles = '[]' where organization_id = $1`, [bizOrg])).rejects.toThrow()
+    await expect(t.as(staff, `insert into public.staff_wages (organization_id, roles) values ($1, '[]')`, [otherOrg])).rejects.toThrow()
+  })
+
+  it('eksporten har lønnsdetaljer for eier, men ikke for medlem', async () => {
+    type Ex = { e: { organizations: { organization: { id: string }; staff_wages: unknown }[] } }
+    const own = (await t.as<Ex>(owner, 'select public.export_my_data() as e'))[0].e.organizations.find((o) => o.organization.id === bizOrg)
+    const mem = (await t.as<Ex>(staff, 'select public.export_my_data() as e'))[0].e.organizations.find((o) => o.organization.id === bizOrg)
+    expect(own?.staff_wages).toBeTruthy()
+    expect(mem?.staff_wages).toBeNull()
+  })
+
+  it('beregningsfunksjonene kan ikke kalles av klienter', async () => {
+    await expect(t.as(staff, `select public.staff_role_hourly_cost('{}'::jsonb)`)).rejects.toThrow()
+  })
+})
+
 describe('menyer', () => {
   let menuId: string
   const menu = (p: Record<string, unknown> = {}) => ({

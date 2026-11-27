@@ -10,6 +10,8 @@ import { recipeCost, type RecipeCostContext } from '../recipeCost'
 import { menuItemCalc } from '../menu'
 import { ingredientFromRow, ingredientToRpc, priceFromRow, recipeFromRow, recipeToRpc, stockLevelsFrom, wasteFromRow, type RecipeRow } from '../../services/storage/mappers'
 import { normalizeIngredient, normalizeRecipe } from '../portions'
+import { withWageDetails } from '../../services/storage/supabaseRepository'
+import { hourlyCost } from '../staffCosts'
 
 const ing = (id: string, p: Partial<Ingredient> = {}): Ingredient => ({
   id, name: id, category: '', packageSize: 1, unit: 'kg', price: 100, store: '', priceUpdated: '2026-11-01',
@@ -195,5 +197,19 @@ describe('lagring og bakoverkompatibilitet', () => {
       .toMatchObject({ packageSize: 25, price: 450, source: 'tilbud', vatPercent: null })
     expect(wasteFromRow({ id: 'w', logged_at: '2026-11-01', ingredient_id: null, recipe_id: null, name: 'X', amount: '1', unit: 'kg', cost: '9.90', reason: 'ukjent', note: null }))
       .toMatchObject({ cost: 9.9, reason: 'annet' })
+  })
+})
+
+describe('timelønn skjult for medlemmer', () => {
+  it('eier/admin får lønnsdetaljene, medlemmer beholder ferdig timekostnad', () => {
+    const publicRoles = { staffRoles: [{ id: 'k', name: 'Kokk', mode: 'ferdig' as const, fixedHourlyCost: 270.148, hourlyWage: 0, employerTaxPercent: 0, holidayPayPercent: 0, pensionPercent: 0, otherPercent: 0 }] }
+    expect(withWageDetails(publicRoles, null)).toBe(publicRoles)
+    expect(withWageDetails(publicRoles, [])).toBe(publicRoles)
+    const detailed = [{ id: 'k', name: 'Kokk', mode: 'detaljert', hourlyWage: 200, holidayPayPercent: 12, pensionPercent: 2, employerTaxPercent: 14.1, otherPercent: 5, fixedHourlyCost: 0 }]
+    expect(withWageDetails(publicRoles, detailed)?.staffRoles?.[0]).toMatchObject({ hourlyWage: 200 })
+  })
+
+  it('samme timekostnad i appen som i databasen (270,148 kr)', () => {
+    expect(hourlyCost({ id: 'k', name: 'Kokk', mode: 'detaljert', hourlyWage: 200, holidayPayPercent: 12, pensionPercent: 2, employerTaxPercent: 14.1, otherPercent: 5, fixedHourlyCost: 0 }).total).toBeCloseTo(270.148, 3)
   })
 })

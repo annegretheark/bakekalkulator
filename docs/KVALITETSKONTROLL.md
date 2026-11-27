@@ -72,7 +72,7 @@ Begge feilene skyldes at databasetestene kjører SQL direkte og ikke går gjenno
 | `20261130120000_business_planer.sql` | Kjørt |
 | `20261130120100_matkalkulator_fase4.sql` | Kjørt |
 
-Ingen nye migrasjoner trengs for rettelsene i denne kontrollen. Anbefalt (ikke laget): tak på antall leverandører, og at `org_has_feature` bare svarer for egne organisasjoner (se punkt 6).
+**Ny migrasjon som må kjøres:** `20261201120000_skjult_timelonn.sql` (timelønn bare for eier og administrator). Kjøres før frontend publiseres. Anbefalt (ikke laget): tak på antall leverandører, og at `org_has_feature` bare svarer for egne organisasjoner (se punkt 6).
 
 ## 5. API-nøkler og miljøvariabler
 
@@ -90,7 +90,7 @@ Ingen kritiske funn. Kontrollert: RLS på alle nye tabeller, sammensatte fremmed
 
 | Funn | Alvorlighet | Anbefaling |
 |---|---|---|
-| Timelønn i personalkostnader kan leses av alle medlemmer i organisasjonen (trengs for å regne kostnad) | Lav / personvern | Vurder om det er akseptabelt. Alternativt: bare ferdig timekostnad synlig for medlemmer |
+| Timelønn i personalkostnader kunne leses av alle medlemmer | Personvern | **Rettet lokalt** (migrasjon `20261201120000_skjult_timelonn.sql`, ikke kjørt): bare eier og administrator ser lønnsdetaljer. Medlemmer får rollenavn og ferdig timekostnad, som trengs for kostnadsberegningen, men som appen ikke viser dem |
 | `org_has_feature(org, …)` svarer også for organisasjoner brukeren ikke er medlem av (avslører om en ukjent organisasjons-id har Business) | Lav (krever gjetting av UUID) | Legg inn medlemskapskontroll i en senere migrasjon |
 | Ingen grense for antall leverandører eller lagerbevegelser per organisasjon | Lav (misbruk/lagringsvekst) | Tak, slik som for utstyr (500) og menyer (200) |
 | Medlemmer ser hvem i organisasjonen som har brukt AI-skanning (`ai_usage.user_id`) | Lav | Akseptabelt internt. Ikke med i eksport |
