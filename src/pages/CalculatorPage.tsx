@@ -87,7 +87,7 @@ export function CalculatorPage() {
             </button>
           )}>
             <div className="form-grid">
-              <NumberField label="Ovnens effekt" value={e.ovenWatt} onChange={(v) => setE('ovenWatt', v)} suffix="W" max={20000} hint="Står på typeskiltet, ofte 2000–3600 W" />
+              <NumberField label="Ovnens effekt" value={e.ovenWatt} onChange={(v) => setE('ovenWatt', v)} suffix="W" max={100000} hint="Står på typeskiltet. Hjemmeovn ofte 2000–3600 W, bakeriovn 10 000–40 000 W (10–40 kW)" />
               <NumberField label="Steketemperatur" value={e.temperatureC} onChange={(v) => setE('temperatureC', v)} suffix="°C" max={350} hint="Til informasjon – effekten styres av effektfaktoren" />
               <NumberField label="Forvarmingstid" value={e.preheatMinutes} onChange={(v) => setE('preheatMinutes', v)} suffix="min" max={120} />
               <NumberField label="Effekt under forvarming" value={e.preheatPowerPercent} onChange={(v) => setE('preheatPowerPercent', v)} suffix="%" max={100} hint="Vanligvis tilnærmet 100 %" />
@@ -106,18 +106,20 @@ export function CalculatorPage() {
             {e.otherEquipment.map((eq) => (
               <div key={eq.id} className="equipment-row">
                 <TextField label="Utstyr" value={eq.name} onChange={(v) => setE('otherEquipment', e.otherEquipment.map((x) => x.id === eq.id ? { ...x, name: v } : x))} />
-                <NumberField label="Effekt" value={eq.watt} suffix="W" max={10000} onChange={(v) => setE('otherEquipment', e.otherEquipment.map((x) => x.id === eq.id ? { ...x, watt: v } : x))} />
+                <NumberField label="Effekt" value={eq.watt} suffix="W" max={100000} onChange={(v) => setE('otherEquipment', e.otherEquipment.map((x) => x.id === eq.id ? { ...x, watt: v } : x))} />
                 <NumberField label="Tid" value={eq.minutes} suffix="min" max={1440} onChange={(v) => setE('otherEquipment', e.otherEquipment.map((x) => x.id === eq.id ? { ...x, minutes: v } : x))} />
                 <NumberField label="Effekt" value={eq.powerFactorPercent} suffix="%" max={100} onChange={(v) => setE('otherEquipment', e.otherEquipment.map((x) => x.id === eq.id ? { ...x, powerFactorPercent: v } : x))} />
                 <button className="icon-btn danger" aria-label={`Fjern ${eq.name}`} onClick={() => setE('otherEquipment', e.otherEquipment.filter((x) => x.id !== eq.id))}><Trash2 size={18} /></button>
               </div>
             ))}
-            <button className="btn ghost" onClick={() => setE('otherEquipment', [...e.otherEquipment, { id: uid(), name: 'Hevebox', watt: 100, minutes: 60, powerFactorPercent: 50 }])}><Plus size={16} /> Legg til utstyr</button>
+            <button className="btn ghost" onClick={() => setE('otherEquipment', [...e.otherEquipment, { id: uid(), name: 'Hevebox', watt: 100, minutes: 60, powerFactorPercent: 50 }])}><Plus size={16} /> Legg til utstyr</button>{' '}
+            <button className="btn ghost" onClick={() => setE('otherEquipment', [...e.otherEquipment, { id: uid(), name: `Ovn ${e.otherEquipment.filter((x) => x.name.startsWith('Ovn')).length + 2}`, watt: e.ovenWatt, minutes: e.preheatMinutes + e.bakeMinutes * Math.max(1, e.rounds), powerFactorPercent: e.bakePowerPercent }])}><Plus size={16} /> Legg til ovn</button>
+            <p className="muted small">Bruker du flere ovner samtidig, legg til hver ekstra ovn med effekt og total driftstid (forvarming + steking).</p>
           </Card>
 
           <Card title="Målt forbruk" icon={Gauge}>
             <Toggle label="Bruk faktisk målt strømforbruk" hint="F.eks. fra strømmåler-app eller måleplugg. Erstatter estimatet." checked={e.useMeasured} onChange={(v) => setE('useMeasured', v)} />
-            {e.useMeasured && <div className="form-grid"><NumberField label="Målt forbruk" value={e.measuredKwh} onChange={(v) => setE('measuredKwh', v)} suffix="kWh" max={100} /></div>}
+            {e.useMeasured && <div className="form-grid"><NumberField label="Målt forbruk" value={e.measuredKwh} onChange={(v) => setE('measuredKwh', v)} suffix="kWh" max={10000} /></div>}
           </Card>
         </div>
 
