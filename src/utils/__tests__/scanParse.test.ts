@@ -3,7 +3,7 @@ import { matchIngredient, packageUnitFor, parseAmount, parseIngredientLine, pars
 import { lookupProduct, parseQuantity } from '../../services/scan'
 import type { Ingredient } from '../../types'
 
-const ing = (id: string, name: string, unit: Ingredient['unit'] = 'kg'): Ingredient => ({ id, name, category: '', packageSize: 1, unit, price: 10, store: '', priceUpdated: '2026-11-27' })
+const ing = (id: string, name: string, unit: Ingredient['unit'] = 'kg'): Ingredient => ({ id, name, category: '', packageSize: 1, unit, price: 10, store: '', priceUpdated: '2026-11-27', allergens: {}, allergensChecked: true })
 
 describe('parseAmount', () => {
   it.each([

@@ -47,6 +47,8 @@ export interface BusinessProfile {
   showStorePrice: boolean
   /** Snarveier i menyen nederst på mobil (i tillegg til «Mer»). */
   mobileTabs: AppRoute[]
+  /** Menypunkter som skjules (privatpersoner trenger ikke personalkostnader og menyer). */
+  hiddenRoutes: AppRoute[]
 }
 
 const BAKERY: BusinessProfile = {
@@ -60,6 +62,7 @@ const BAKERY: BusinessProfile = {
   defaultYieldUnit: 'stk',
   showStorePrice: true,
   mobileTabs: ['oversikt', 'kalkulator', 'strompriser', 'oppskrifter'],
+  hiddenRoutes: [],
 }
 
 const FOOD: BusinessProfile = {
@@ -72,11 +75,12 @@ const FOOD: BusinessProfile = {
   defaultCategory: 'hovedretter',
   defaultYieldUnit: 'porsjoner',
   showStorePrice: false,
-  mobileTabs: ['oversikt', 'kalkulator', 'oppskrifter', 'ingredienser'],
+  mobileTabs: ['oversikt', 'kalkulator', 'oppskrifter', 'menyer'],
+  hiddenRoutes: [],
 }
 
 export const BUSINESS_PROFILES: Record<BusinessType, BusinessProfile> = {
-  privat: { ...BAKERY, greeting: 'God dag!', overviewText: 'Her er status for matlagingen og strømprisen akkurat nå.' },
+  privat: { ...BAKERY, greeting: 'God dag!', overviewText: 'Her er status for matlagingen og strømprisen akkurat nå.', hiddenRoutes: ['kostnader', 'menyer'] },
   bakeri: BAKERY,
   restaurant: FOOD,
   kafe: { ...FOOD, defaultCategory: 'lunsj' },

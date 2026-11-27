@@ -115,7 +115,7 @@ export function RecipeScanPanel({ onDone, onCancel }: { onDone: (r: Recipe, crea
         if (r.target === SKIP) continue
         let id = r.target
         if (r.target === NEW) {
-          const ing: Ingredient = { id: uid(), name: r.name.trim() || 'Ukjent', category: '', packageSize: 1, unit: packageUnitFor(r.unit), price: 0, store: '', priceUpdated: today }
+          const ing: Ingredient = { id: uid(), name: r.name.trim() || 'Ukjent', category: '', packageSize: 1, unit: packageUnitFor(r.unit), price: 0, store: '', priceUpdated: today, allergens: {}, allergensChecked: true }
           await upsertIngredient(ing)
           id = ing.id
           created++
@@ -129,7 +129,7 @@ export function RecipeScanPanel({ onDone, onCancel }: { onDone: (r: Recipe, crea
       onDone({
         id: uid(), name: name.trim(), type: 'brod', yieldCount: Math.max(1, Math.round(yieldCount)), ingredients,
         category: businessProfile(data.settings.businessType).defaultCategory, yieldUnit: businessProfile(data.settings.businessType).defaultYieldUnit,
-        prepMinutes: 0, finishedWeightG: null,
+        prepMinutes: 0, finishedWeightG: null, labor: [], packagingPerUnit: 0, crossContact: [],
         steps: parsed.steps.length ? parsed.steps : [''], riseMinutes: 60, bakeMinutes: energy.bakeMinutes,
         storePricePerItem: 0, notes: 'Skannet fra bilde – kontroller mengder og steg.', energy, createdAt: now, updatedAt: now,
       }, created)
@@ -239,7 +239,7 @@ export function ReceiptScanPanel({ onClose }: { onClose: (message?: string) => v
           await upsertIngredient({ ...existing, price: r.price, packageSize: r.packageSize, unit: r.unit, store: store || existing.store, priceUpdated: today })
           updated++
         } else {
-          await upsertIngredient({ id: uid(), name: r.name.trim(), category: '', packageSize: r.packageSize, unit: r.unit, price: r.price, store, priceUpdated: today })
+          await upsertIngredient({ id: uid(), name: r.name.trim(), category: '', packageSize: r.packageSize, unit: r.unit, price: r.price, store, priceUpdated: today, allergens: {}, allergensChecked: true })
           created++
         }
       }

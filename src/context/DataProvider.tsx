@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { AppData, AppSettings, BakeLog, BusinessType, EquipmentItem, Id, Ingredient, Recipe } from '../types'
+import type { AppData, AppSettings, BakeLog, BusinessType, CostSettings, EquipmentItem, Id, Ingredient, Menu, Recipe } from '../types'
 import { syncEnergyWithRegister } from '../utils/equipment'
 import type { DataRepository } from '../services/storage'
 import { emptyData } from '../lib/seed'
@@ -80,6 +80,9 @@ export function DataProvider({ children, repository: repo }: { children: ReactNo
     },
     deleteEquipment: (id: Id) => mutate((d) => ({ ...d, equipment: d.equipment.filter((x) => x.id !== id) }), () => repo.deleteEquipment(id)),
     saveBusinessType: (t: BusinessType) => mutate((d) => ({ ...d, settings: { ...d.settings, businessType: t } }), () => repo.saveBusinessType(t)),
+    saveCostSettings: (c: CostSettings) => mutate((d) => ({ ...d, costs: c }), () => repo.saveCostSettings(c)),
+    upsertMenu: (m: Menu) => mutate((d) => ({ ...d, menus: upsert(d.menus, m) }), () => repo.upsertMenu(m)),
+    deleteMenu: (id: Id) => mutate((d) => ({ ...d, menus: d.menus.filter((x) => x.id !== id) }), () => repo.deleteMenu(id)),
   }), [data, loading, error, draft, mutate, repo])
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

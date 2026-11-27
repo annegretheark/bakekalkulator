@@ -1,20 +1,25 @@
-import type { AppData, BakeLog, Ingredient, Recipe } from '../types'
-import { defaultEnergyInput, defaultSettings } from './defaults'
+import type { AllergenCode, AllergenMap, AppData, BakeLog, Ingredient, Recipe } from '../types'
+import { ALLERGEN_CODES } from '../types'
+import { defaultCostSettings, defaultEnergyInput, defaultSettings } from './defaults'
 
 export const DATA_VERSION = 1
 
 const today = new Date().toISOString().slice(0, 10)
 
-const ing = (id: string, name: string, category: string, packageSize: number, unit: Ingredient['unit'], price: number, store: string): Ingredient => ({
-  id, name, category, packageSize, unit, price, store, priceUpdated: today,
+/** Alle 14 allergener satt til «inneholder ikke», med unntak. Eksempeldata – kontroller mot varedeklarasjonen. */
+const allergens = (contains: AllergenCode[] = []): AllergenMap =>
+  Object.fromEntries(ALLERGEN_CODES.map((c) => [c, contains.includes(c) ? 'ja' : 'nei'])) as AllergenMap
+
+const ing = (id: string, name: string, category: string, packageSize: number, unit: Ingredient['unit'], price: number, store: string, contains: AllergenCode[] = []): Ingredient => ({
+  id, name, category, packageSize, unit, price, store, priceUpdated: today, allergens: allergens(contains), allergensChecked: true,
 })
 
 /** Eksempelpriser for demonstrasjon – oppdater med egne priser. */
 export const SEED_INGREDIENTS: Ingredient[] = [
-  ing('ing-hvetemel', 'Hvetemel', 'Mel', 2, 'kg', 32, 'Dagligvare'),
-  ing('ing-sammalt', 'Sammalt hvete, grov', 'Mel', 1, 'kg', 28, 'Dagligvare'),
-  ing('ing-rug', 'Sammalt rug', 'Mel', 1, 'kg', 34, 'Dagligvare'),
-  ing('ing-havregryn', 'Havregryn', 'Korn og frø', 1.1, 'kg', 25, 'Dagligvare'),
+  ing('ing-hvetemel', 'Hvetemel', 'Mel', 2, 'kg', 32, 'Dagligvare', ['gluten']),
+  ing('ing-sammalt', 'Sammalt hvete, grov', 'Mel', 1, 'kg', 28, 'Dagligvare', ['gluten']),
+  ing('ing-rug', 'Sammalt rug', 'Mel', 1, 'kg', 34, 'Dagligvare', ['gluten']),
+  ing('ing-havregryn', 'Havregryn', 'Korn og frø', 1.1, 'kg', 25, 'Dagligvare', ['gluten']),
   ing('ing-solsikke', 'Solsikkekjerner', 'Korn og frø', 400, 'g', 30, 'Dagligvare'),
   ing('ing-gjar', 'Tørrgjær', 'Gjær', 132, 'g', 30, 'Dagligvare'),
   ing('ing-salt', 'Salt', 'Krydder', 1, 'kg', 15, 'Dagligvare'),
@@ -47,6 +52,9 @@ export const SEED_RECIPES: Recipe[] = [
       { id: 'ri-9', ingredientId: 'ing-solsikke', amount: 100, unit: 'g' },
       { id: 'ri-10', ingredientId: 'ing-hvetemel', amount: 1250, unit: 'g' },
     ],
+    labor: [],
+    packagingPerUnit: 0,
+    crossContact: [],
     steps: [
       'Bland lunkent vann (ca. 37 °C), gjær, honning og olje.',
       'Tilsett salt, sammalt hvete, rug, havregryn og solsikkekjerner.',
@@ -94,9 +102,11 @@ export function seedData(): AppData {
     recipes: SEED_RECIPES,
     history: SEED_HISTORY,
     equipment: [],
+    costs: defaultCostSettings(),
+    menus: [],
   }
 }
 
 export function emptyData(): AppData {
-  return { version: DATA_VERSION, settings: defaultSettings(), ingredients: [], recipes: [], history: [], equipment: [] }
+  return { version: DATA_VERSION, settings: defaultSettings(), ingredients: [], recipes: [], history: [], equipment: [], costs: defaultCostSettings(), menus: [] }
 }

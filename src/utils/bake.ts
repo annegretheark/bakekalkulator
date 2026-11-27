@@ -1,5 +1,6 @@
 import type { EnergyInput, EnergyResult, Ingredient, IngredientCostLine, Recipe } from '../types'
 import { calculateEnergy, ovenKwh } from './energy'
+import type { SubRecipeResolver } from './costs'
 import { batchComparison, calculateSavings, costPerItem, recipeCostLines, sumCosts, type BatchRow, type SavingsResult } from './costs'
 
 export interface BakeInput {
@@ -10,6 +11,8 @@ export interface BakeInput {
   pricePerKwh: number
   storePricePerItem: number
   bakesPerMonth: number
+  /** Beregner underoppskrifter i oppskriften (råvarer og energi). */
+  resolveSub?: SubRecipeResolver
 }
 
 export interface BakeResult {
@@ -36,7 +39,7 @@ export function computeBake(input: BakeInput): BakeResult {
   const scale = energy.estimatedKwh > 0 ? energy.totalKwh / energy.estimatedKwh : 0
   const partCosts = energy.parts.map((p) => ({ ...p, kwh: p.kwh * scale, cost: p.kwh * scale * price }))
 
-  const ingredientLines = input.recipe ? recipeCostLines(input.recipe, input.ingredients, input.count) : []
+  const ingredientLines = input.recipe ? recipeCostLines(input.recipe, input.ingredients, input.count, input.resolveSub) : []
   const ingredientCost = sumCosts(ingredientLines)
   const totalCost = electricityCost + ingredientCost
   const perItem = costPerItem(totalCost, input.count)

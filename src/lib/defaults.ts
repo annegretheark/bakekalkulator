@@ -1,4 +1,4 @@
-import type { AppSettings, EnergyInput, PriceArea, PriceSettings } from '../types'
+import type { AppSettings, EnergyInput, PriceArea, PriceSettings, CostSettings, StaffRole } from '../types'
 
 export const AREA_NAMES: Record<PriceArea, string> = {
   NO1: 'Østlandet',
@@ -93,6 +93,23 @@ export function defaultSalesDraft() {
     laborHours: 0,
     hourlyRate: 0,
   }
+}
+
+/**
+ * Standardsatser for personalkostnader. Kunden må kontrollere dem:
+ *  * arbeidsgiveravgift 14,1 % gjelder sone 1 (lavere i andre soner)
+ *  * feriepenger 12 % ved fem ukers ferie (10,2 % etter ferieloven)
+ *  * obligatorisk tjenestepensjon minst 2 %
+ */
+export function defaultStaffRole(id: string, name = 'Kokk'): StaffRole {
+  return {
+    id, name, mode: 'detaljert', hourlyWage: 250, employerTaxPercent: 14.1, holidayPayPercent: 12,
+    pensionPercent: 2, otherPercent: 0, fixedHourlyCost: 0,
+  }
+}
+
+export function defaultCostSettings(): CostSettings {
+  return { staffRoles: [], operatingCosts: [], includeContinuousEquipment: true, unitsPerMonth: 0 }
 }
 
 export function defaultEnergyInput(): EnergyInput {

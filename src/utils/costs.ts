@@ -24,9 +24,16 @@ export function scaleRecipeIngredients(items: RecipeIngredient[], fromCount: num
   return items.map((i) => ({ ...i, amount: i.amount * f }))
 }
 
-export function recipeCostLines(recipe: Recipe, ingredients: Ingredient[], targetCount = recipe.yieldCount): IngredientCostLine[] {
+/** Beregner en underoppskriftslinje (se utils/recipeCost). */
+export type SubRecipeResolver = (line: RecipeIngredient) => { name: string; cost: number | null; error?: string }
+
+export function recipeCostLines(recipe: Recipe, ingredients: Ingredient[], targetCount = recipe.yieldCount, resolveSub?: SubRecipeResolver): IngredientCostLine[] {
   const byId = new Map(ingredients.map((i) => [i.id, i]))
   return scaleRecipeIngredients(recipe.ingredients, recipe.yieldCount, targetCount).map((ri) => {
+    if (ri.subRecipeId) {
+      const sub = resolveSub ? resolveSub(ri) : { name: 'Underoppskrift', cost: null, error: 'Underoppskrifter kan ikke beregnes her' }
+      return { recipeIngredientId: ri.id, name: `${sub.name} (underoppskrift)`, amount: ri.amount, unit: ri.unit, cost: sub.cost, error: sub.error }
+    }
     const ing = byId.get(ri.ingredientId)
     if (!ing) {
       return { recipeIngredientId: ri.id, name: 'Ukjent ingrediens', amount: ri.amount, unit: ri.unit, cost: null, error: 'Ingrediensen finnes ikke i registeret' }

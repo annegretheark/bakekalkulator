@@ -1,4 +1,7 @@
-import type { Recipe } from '../types'
+import type { CostSettings, Ingredient, Menu, Recipe } from '../types'
+import { ALLERGEN_CODES, MENU_TYPES } from '../types'
+import { cleanAllergenMap } from '../lib/allergens'
+import { defaultCostSettings } from '../lib/defaults'
 
 /** Ferdig vekt (g) når oppskriften skaleres til `count` stk/porsjoner. */
 export function scaledWeightG(recipe: Pick<Recipe, 'finishedWeightG' | 'yieldCount'>, count: number): number | null {
@@ -40,5 +43,34 @@ export function normalizeRecipe(r: Recipe): Recipe {
     yieldUnit: r.yieldUnit === 'porsjoner' ? 'porsjoner' : 'stk',
     prepMinutes: Number.isFinite(r.prepMinutes) ? r.prepMinutes : 0,
     finishedWeightG: typeof r.finishedWeightG === 'number' && r.finishedWeightG > 0 ? r.finishedWeightG : null,
+    ingredients: Array.isArray(r.ingredients) ? r.ingredients.map((l) => ({ ...l, ingredientId: l.ingredientId ?? '', subRecipeId: l.subRecipeId || null })) : [],
+    labor: Array.isArray(r.labor) ? r.labor : [],
+    packagingPerUnit: Number.isFinite(r.packagingPerUnit) && r.packagingPerUnit > 0 ? r.packagingPerUnit : 0,
+    crossContact: Array.isArray(r.crossContact) ? r.crossContact.filter((c) => ALLERGEN_CODES.includes(c)) : [],
+  }
+}
+
+/** Fyller inn allergenfelt for ingredienser lagret før fase 2 (ukjent status). */
+export function normalizeIngredient(i: Ingredient): Ingredient {
+  return { ...i, allergens: cleanAllergenMap(i.allergens), allergensChecked: i.allergensChecked !== false }
+}
+
+export function normalizeCostSettings(c: Partial<CostSettings> | null | undefined): CostSettings {
+  const def = defaultCostSettings()
+  const units = Number(c?.unitsPerMonth)
+  return {
+    staffRoles: Array.isArray(c?.staffRoles) ? c.staffRoles : def.staffRoles,
+    operatingCosts: Array.isArray(c?.operatingCosts) ? c.operatingCosts : def.operatingCosts,
+    includeContinuousEquipment: typeof c?.includeContinuousEquipment === 'boolean' ? c.includeContinuousEquipment : def.includeContinuousEquipment,
+    unitsPerMonth: Number.isFinite(units) && units > 0 ? units : 0,
+  }
+}
+
+export function normalizeMenu(m: Menu): Menu {
+  return {
+    ...m,
+    type: MENU_TYPES.includes(m.type) ? m.type : 'egen',
+    description: m.description ?? '',
+    items: Array.isArray(m.items) ? m.items : [],
   }
 }

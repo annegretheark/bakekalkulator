@@ -8,8 +8,9 @@ import { unitDimension } from '../utils/units'
 import { PhotoButton, ReceiptScanPanel, ScanLocked } from '../components/ScanPanels'
 import { useScanAllowed } from '../hooks/useScanAllowed'
 import { decodeBarcode, lookupProduct } from '../services/scan'
+import { AllergenEditor, AllergenSummary } from '../components/Allergens'
 
-const blank = (): Ingredient => ({ id: uid(), name: '', category: '', packageSize: 1, unit: 'kg', price: 0, store: '', priceUpdated: toLocalDateKey(new Date()) })
+const blank = (): Ingredient => ({ id: uid(), name: '', category: '', packageSize: 1, unit: 'kg', price: 0, store: '', priceUpdated: toLocalDateKey(new Date()), allergens: {}, allergensChecked: true })
 
 /** Pris per basisenhet for sammenligning (kr/kg, kr/l, kr/stk). */
 function unitPrice(i: Ingredient): string {
@@ -55,7 +56,7 @@ export function IngredientsPage() {
 
   const usedIn = useMemo(() => {
     const m = new Map<string, number>()
-    data.recipes.forEach((r) => r.ingredients.forEach((ri) => m.set(ri.ingredientId, (m.get(ri.ingredientId) ?? 0) + 1)))
+    data.recipes.forEach((r) => r.ingredients.forEach((ri) => { if (!ri.subRecipeId) m.set(ri.ingredientId, (m.get(ri.ingredientId) ?? 0) + 1) }))
     return m
   }, [data.recipes])
 
@@ -110,6 +111,13 @@ export function IngredientsPage() {
             <TextField label="Butikk" value={editing.store} onChange={(v) => setEditing({ ...editing, store: v })} />
             <TextField label="Pris sist oppdatert" type="date" value={editing.priceUpdated} onChange={(v) => setEditing({ ...editing, priceUpdated: v })} />
           </div>
+          <AllergenEditor value={editing.allergens} onChange={(v) => setEditing({ ...editing, allergens: v })} />
+          {!editing.allergensChecked && (
+            <Notice tone="warn">
+              Allergenene er foreslått automatisk og ikke kontrollert. Sjekk dem mot varedeklarasjonen.{' '}
+              <button type="button" className="btn ghost small" onClick={() => setEditing({ ...editing, allergensChecked: true })}>Jeg har kontrollert allergenene</button>
+            </Notice>
+          )}
           <Notice>Vekt og volum regnes ikke om til hverandre. Registrer ingrediensen i samme type enhet som du bruker i oppskriften (f.eks. mel i kg/g, melk i l/dl).</Notice>
           <div className="actions">
             <button className="btn primary" disabled={!valid} onClick={save}>Lagre</button>
@@ -126,7 +134,7 @@ export function IngredientsPage() {
           <div className="search"><Search size={16} aria-hidden /><input aria-label="Søk" placeholder="Søk i ingredienser …" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
           <div className="table-wrap">
             <table className="clean responsive">
-              <thead><tr><th>Navn</th><th>Kategori</th><th className="num">Pakning</th><th className="num">Pris</th><th className="num">Enhetspris</th><th>Butikk</th><th>Oppdatert</th><th /></tr></thead>
+              <thead><tr><th>Navn</th><th>Kategori</th><th className="num">Pakning</th><th className="num">Pris</th><th className="num">Enhetspris</th><th>Allergener</th><th>Butikk</th><th>Oppdatert</th><th /></tr></thead>
               <tbody>
                 {list.map((i) => (
                   <tr key={i.id}>
@@ -135,6 +143,7 @@ export function IngredientsPage() {
                     <td data-label="Pakning" className="num">{formatNumber(i.packageSize, 3, f.locale)} {i.unit}</td>
                     <td data-label="Pris" className="num">{formatMoney(i.price, f)}</td>
                     <td data-label="Enhetspris" className="num muted">{unitPrice(i)}</td>
+                    <td data-label="Allergener"><AllergenSummary map={i.allergens} />{!i.allergensChecked && <span className="tag allergen-ukjent">Ikke kontrollert</span>}</td>
                     <td data-label="Butikk">{i.store}</td>
                     <td data-label="Oppdatert">{i.priceUpdated ? formatDate(i.priceUpdated, f.locale) : '–'}</td>
                     <td className="row-actions">

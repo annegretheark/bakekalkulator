@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { BookOpen, Calculator, ChartColumn, History, LayoutDashboard, LogIn, Menu, Settings, WifiOff, Shield, ShoppingBasket, UserRound, Wheat, Wrench, X, Zap } from 'lucide-react'
+import { BookOpen, Calculator, ChartColumn, ClipboardList, History, LayoutDashboard, LogIn, Menu, Settings, WifiOff, Shield, ShoppingBasket, UserRound, Users, Wheat, Wrench, X, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { navigate, type RouteKey } from '../hooks/useRoute'
 import { useData, useFormat, useT } from '../hooks/useData'
@@ -19,6 +19,8 @@ const NAV: { key: RouteKey; label: TranslationKey; icon: LucideIcon }[] = [
   { key: 'oppskrifter', label: 'nav.recipes', icon: BookOpen },
   { key: 'ingredienser', label: 'nav.ingredients', icon: ShoppingBasket },
   { key: 'utstyr', label: 'nav.equipment', icon: Wrench },
+  { key: 'kostnader', label: 'nav.costs', icon: Users },
+  { key: 'menyer', label: 'nav.menus', icon: ClipboardList },
   { key: 'historikk', label: 'nav.history', icon: History },
   { key: 'salg', label: 'nav.sales', icon: ChartColumn },
   { key: 'innstillinger', label: 'nav.settings', icon: Settings },
@@ -56,7 +58,7 @@ export function Layout({ route, children }: { route: RouteKey; children: ReactNo
           <button className="icon-btn only-mobile" onClick={() => setOpen(false)} aria-label="Lukk meny"><X size={20} /></button>
         </div>
         {!locked && <nav>
-          {NAV.map(({ key, label, icon: Icon }) => (
+          {NAV.filter((n) => !profile.hiddenRoutes.includes(n.key as never)).map(({ key, label, icon: Icon }) => (
             <a key={key} href={`#/${key}`} className={route === key ? 'active' : ''} aria-current={route === key ? 'page' : undefined} onClick={(e) => { e.preventDefault(); go(key) }}>
               <Icon size={18} aria-hidden /> {navLabel(key, label)}
             </a>

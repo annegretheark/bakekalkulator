@@ -39,9 +39,11 @@ npm run deploy   # bygger med .env.local og publiserer (cf deploy)
 | Oversikt | Strømpris nå, billigste bakevindu, gjeldende kalkyle, totalstatistikk, prisgraf og siste bakinger |
 | Kalkulator (Bakekalkulator for bakerier og privatpersoner) | Manuelt oppsett eller utstyr fra registeret. Én eller flere ovner, forvarming, steking, omganger, kjøkkenmaskin, annet utstyr og målt forbruk. Kostnad per del, ingredienser, resultatkort og «bak flere samtidig» |
 | Strømpriser | Kundetype (bedrift/privat), prisområde NO1–NO5, avtaletype (spot, Norgespris for privat, fastpris, manuell), graf, prisoppbygging og konfigurerbare tillegg |
-| Mine oppskrifter | 14 kategorier, stk eller porsjoner, tilberedningstid, steke-/koketid, temperatur, ferdig vekt, utstyr fra registeret. Kostnad per porsjon og per kilo, skalering. **Skann oppskrift** fra bilde (Pro) |
-| Ingredienser | Register med kategori, pakning, enhet, pris, butikk og prisdato. **Skann kvittering** og **skann strekkode** (Pro) |
+| Mine oppskrifter | 14 kategorier, stk eller porsjoner, tilberedningstid, steke-/koketid, temperatur, ferdig vekt, utstyr fra registeret, underoppskrifter (saus, deig, dressing) med sperre mot sirkulære referanser, arbeidstid, emballasje og risiko for krysskontakt. Full kostnad per porsjon og per kilo (råvarer, strøm, personal, emballasje, drift), allergenoversikt, skalering. **Skann oppskrift** fra bilde (Pro) |
+| Ingredienser | Register med kategori, pakning, enhet, pris, butikk, prisdato og de 14 merkepliktige allergenene (inneholder, spor, inneholder ikke, ukjent). **Skann kvittering** og **skann strekkode** (Pro) |
 | Utstyr | Utstyrsregister med 16 typer og maler (merket som anslag), effekt i W eller kW, forvarming, drift, målt forbruk, kapasitet. Kjøl, frys og ventilasjon vises som felles driftskostnad per måned |
+| Personal og drift | Roller med timekostnad (detaljert: timelønn, feriepenger, pensjon, arbeidsgiveravgift, andre kostnader – eller ferdig timekostnad). Faste driftskostnader per måned og strøm til kjøl/frys/ventilasjon, fordelt på antall per måned. Eier/administrator endrer |
+| Menyer | Frokost, lunsj, middag, dagens rett, catering, sesong og egne menyer. Kostnad, pris eks. mva, fortjeneste, margin og råvareandel per rett, prisforslag og utskriftsvennlig allergenoversikt |
 | Bakehistorikk / Produksjonshistorikk | Lagrede bakinger og produksjoner som øyeblikksbilder, med statistikk for uke, måned og år |
 | Salg og fortjeneste | Kostnader, svinn, arbeid, mva, margin, påslag og anbefalt pris |
 | Innstillinger | Virksomhetstype (tilpasser meny og ord), frekvens, reservepris, språk/valuta, eksport/import og tilbakestilling |
@@ -128,6 +130,7 @@ Ligger i `supabase/migrations/` og kjøres i rekkefølge:
 | `20261126120200_rls_policies.sql` | RLS på alle tabeller, policyer, kolonne- og funksjonsrettigheter |
 | `20261126120300_reference_data.sql` | Planer (Free/Plus/Pro) og offentlige strømprissatser |
 | `20261127120000_matkalkulator_fase1.sql` | Virksomhetstype på organisasjoner, utstyrsregister (`equipment` utvidet, `save_equipment`), kategori/porsjoner/tilberedningstid/ferdig vekt på oppskrifter. **Kjøres før ny frontend publiseres** |
+| `20261128120000_matkalkulator_fase2.sql` | Allergener på ingredienser, underoppskrifter (`recipe_ingredients.sub_recipe_id` med sperre mot sirkler), arbeidstid/emballasje/krysskontakt på oppskrifter, `cost_settings` (`save_cost_settings`, eier/admin) og `menus` (`save_menu`). Utvidet eksport og import. **Krever fase 1-migrasjonen. Kjøres før ny frontend publiseres** |
 
 Kjøre mot det eksterne prosjektet (etter godkjenning):
 
@@ -237,7 +240,8 @@ Viktige constraints:
   - Gjentatt import hopper over det som finnes, så det blir ingen duplikater.
   - Feiler importen, lagres ingenting.
   - Lokale data slettes **aldri** automatisk. Brukeren kan velge å slette dem etter en bekreftet vellykket import.
-  - Bakehistorikk importeres ikke.
+  - Allergener, underoppskrifter, emballasje og krysskontakt følger med. Underoppskrifter kobles uansett rekkefølge i importen.
+  - Bakehistorikk, utstyr, menyer, personal- og driftskostnader og arbeidstid i oppskrifter importeres ikke.
 
 ### Personvern
 

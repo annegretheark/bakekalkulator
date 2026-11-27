@@ -238,6 +238,21 @@ export interface CheapestWindow {
   avgPricePerKwh: number
 }
 
+// ---------- Allergener ----------
+/** De 14 merkepliktige allergenkategoriene (matinformasjonsforskriften). */
+export type AllergenCode =
+  | 'gluten' | 'skalldyr' | 'egg' | 'fisk' | 'peanotter' | 'soya' | 'melk'
+  | 'notter' | 'selleri' | 'sennep' | 'sesam' | 'sulfitt' | 'lupin' | 'blotdyr'
+export const ALLERGEN_CODES: AllergenCode[] = [
+  'gluten', 'skalldyr', 'egg', 'fisk', 'peanotter', 'soya', 'melk',
+  'notter', 'selleri', 'sennep', 'sesam', 'sulfitt', 'lupin', 'blotdyr',
+]
+/** Registrert for en ingrediens: inneholder, kan inneholde spor, inneholder ikke. Mangler = ukjent. */
+export type AllergenMark = 'ja' | 'spor' | 'nei'
+export type AllergenMap = Partial<Record<AllergenCode, AllergenMark>>
+/** Beregnet status for en oppskrift eller rett. 'fri' bare når alt er kontrollert. */
+export type AllergenStatus = 'inneholder' | 'spor' | 'krysskontakt' | 'ukjent' | 'fri'
+
 // ---------- Ingredienser og oppskrifter ----------
 export interface Ingredient {
   id: Id
@@ -248,13 +263,28 @@ export interface Ingredient {
   price: number
   store: string
   priceUpdated: string // ISO-dato
+  /** Allergener. Allergen som mangler i kartet = ukjent status. */
+  allergens: AllergenMap
+  /** false når allergenene kommer fra AI eller skanning og ikke er kontrollert av kunden. */
+  allergensChecked: boolean
 }
 
 export interface RecipeIngredient {
   id: Id
+  /** Ingrediens fra registeret. Tom når linjen er en underoppskrift. */
   ingredientId: Id
+  /** Underoppskrift (saus, deig, dressing). Mengde i g/kg (krever ferdig vekt) eller stk/porsjoner. */
+  subRecipeId?: Id | null
   amount: number
   unit: Unit
+}
+
+/** Arbeidstid i en oppskrift: antall personer i en rolle × minutter per person, for hele oppskriften. */
+export interface LaborLine {
+  id: Id
+  roleId: Id
+  people: number
+  minutes: number
 }
 
 export interface Recipe {
@@ -269,6 +299,12 @@ export interface Recipe {
   /** Ferdig vekt for hele oppskriften i gram. Gir kostnad per kilo. */
   finishedWeightG: number | null
   ingredients: RecipeIngredient[]
+  /** Arbeidstid (personalkostnad) for hele oppskriften. */
+  labor: LaborLine[]
+  /** Emballasje per stk/porsjon (kr). */
+  packagingPerUnit: number
+  /** Allergener med risiko for krysskontakt i produksjonen (felles utstyr, lokaler). */
+  crossContact: AllergenCode[]
   steps: string[]
   riseMinutes: number
   bakeMinutes: number
@@ -286,6 +322,63 @@ export interface IngredientCostLine {
   unit: Unit
   cost: number | null // null = kan ikke beregnes (ukjent/inkompatibel enhet)
   error?: string
+}
+
+// ---------- Personal- og driftskostnader ----------
+/** En rolle/ansattgruppe med timekostnad. Alle satser er konfigurerbare. */
+export interface StaffRole {
+  id: Id
+  name: string
+  /** 'detaljert': timelønn + tillegg. 'ferdig': kunden oppgir ferdig beregnet timekostnad. */
+  mode: 'detaljert' | 'ferdig'
+  hourlyWage: number
+  employerTaxPercent: number
+  holidayPayPercent: number
+  pensionPercent: number
+  /** Andre personalkostnader i prosent av timelønn (forsikring, kantine, kurs). */
+  otherPercent: number
+  fixedHourlyCost: number
+}
+
+/** Fast kostnad per måned (husleie, forsikring, regnskap, kortterminal ...). */
+export interface OperatingCost {
+  id: Id
+  name: string
+  amountPerMonth: number
+}
+
+export interface CostSettings {
+  staffRoles: StaffRole[]
+  operatingCosts: OperatingCost[]
+  /** Ta med strøm til kjøleskap, frysere og ventilasjon fra utstyrsregisteret. */
+  includeContinuousEquipment: boolean
+  /** Hvor mange stk/porsjoner som lages per måned. Driftskostnadene fordeles på dette. */
+  unitsPerMonth: number
+}
+
+// ---------- Menyer ----------
+export type MenuType = 'frokost' | 'lunsj' | 'middag' | 'dagens' | 'catering' | 'sesong' | 'egen'
+export const MENU_TYPES: MenuType[] = ['frokost', 'lunsj', 'middag', 'dagens', 'catering', 'sesong', 'egen']
+
+export interface MenuItem {
+  id: Id
+  recipeId: Id
+  /** Navn på menyen (tomt = oppskriftens navn). */
+  name: string
+  /** Utsalgspris per porsjon/stk inkl. mva. */
+  price: number
+  /** 15 % for mat til å ta med, 25 % for servering. */
+  vatPercent: number
+}
+
+export interface Menu {
+  id: Id
+  name: string
+  type: MenuType
+  description: string
+  items: MenuItem[]
+  createdAt: string
+  updatedAt: string
 }
 
 // ---------- Historikk ----------
@@ -363,4 +456,6 @@ export interface AppData {
   recipes: Recipe[]
   history: BakeLog[]
   equipment: EquipmentItem[]
+  costs: CostSettings
+  menus: Menu[]
 }

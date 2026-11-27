@@ -1,8 +1,9 @@
 // Oversetting mellom databaserader (snake_case) og appens modeller (camelCase).
 // Rene funksjoner – testes isolert.
-import type { AppData, AppSettings, BakeLog, BusinessType, EnergyInput, EquipmentItem, Ingredient, PriceSettings, Recipe, RecipeIngredient, Tariff } from '../../types'
-import { EQUIPMENT_TYPES, RECIPE_CATEGORIES } from '../../types'
-import { categoryForBakeType } from '../../utils/portions'
+import type { AppData, AppSettings, BakeLog, BusinessType, CostSettings, EnergyInput, EquipmentItem, Ingredient, LaborLine, Menu, MenuItem, PriceSettings, Recipe, RecipeIngredient, Tariff } from '../../types'
+import { ALLERGEN_CODES, EQUIPMENT_TYPES, MENU_TYPES, RECIPE_CATEGORIES } from '../../types'
+import { categoryForBakeType, normalizeCostSettings } from '../../utils/portions'
+import { cleanAllergenMap } from '../../lib/allergens'
 import { isBusinessType } from '../../lib/businessTypes'
 import { defaultEnergyInput, defaultPriceSettings, defaultSettings } from '../../lib/defaults'
 import { DATA_VERSION } from '../../lib/seed'
@@ -24,11 +25,14 @@ export interface IngredientRow {
   price: number | string
   store: string
   price_updated: string
+  allergens?: unknown
+  allergens_checked?: boolean | null
 }
 
 export interface RecipeIngredientRow {
   id: string
   ingredient_id: string | null
+  sub_recipe_id?: string | null
   position: number
   amount: number | string
   unit: Ingredient['unit']
@@ -50,9 +54,23 @@ export interface RecipeRow {
   store_price_per_item: number | string
   notes: string
   energy: Partial<EnergyInput> | null
+  labor?: unknown
+  packaging_per_unit?: number | string | null
+  cross_contact?: string[] | null
   created_at: string
   updated_at: string
   recipe_ingredients?: RecipeIngredientRow[]
+}
+
+export interface MenuRow {
+  id: string
+  organization_id: string
+  name: string
+  menu_type: string
+  description: string | null
+  items: unknown
+  created_at: string
+  updated_at: string
 }
 
 export interface EquipmentRow {
@@ -120,6 +138,8 @@ export const ingredientFromRow = (r: IngredientRow): Ingredient => ({
   price: num(r.price),
   store: r.store ?? '',
   priceUpdated: r.price_updated,
+  allergens: cleanAllergenMap(r.allergens),
+  allergensChecked: r.allergens_checked !== false,
 })
 
 /** Argument til RPC-en save_ingredient (organisasjonen sendes separat). */
@@ -132,6 +152,8 @@ export const ingredientToRpc = (i: Ingredient) => ({
   price: i.price,
   store: i.store ?? '',
   price_updated: i.priceUpdated || new Date().toISOString().slice(0, 10),
+  allergens: cleanAllergenMap(i.allergens),
+  allergens_checked: i.allergensChecked !== false,
 })
 
 export const energyFromJson = (e: Partial<EnergyInput> | null | undefined): EnergyInput => ({
@@ -140,6 +162,16 @@ export const energyFromJson = (e: Partial<EnergyInput> | null | undefined): Ener
   otherEquipment: Array.isArray(e?.otherEquipment) ? e.otherEquipment : [],
   extraOvens: Array.isArray(e?.extraOvens) ? e.extraOvens : [],
 })
+
+/** Arbeidslinjer fra JSON. Ugyldige linjer hoppes over. */
+export function laborFromJson(v: unknown): LaborLine[] {
+  if (!Array.isArray(v)) return []
+  return v
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+    .map((x, i) => ({ id: String(x.id ?? `l${i}`), roleId: String(x.roleId ?? ''), people: num(x.people, 1), minutes: num(x.minutes, 0) }))
+}
+
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Number.isFinite(n) ? n : lo))
 
 const optPos = (v: unknown): number | null => {
   if (v === null || v === undefined || v === '') return null
@@ -158,7 +190,10 @@ export const recipeFromRow = (r: RecipeRow): Recipe => ({
   finishedWeightG: optPos(r.finished_weight_g),
   ingredients: [...(r.recipe_ingredients ?? [])]
     .sort((a, b) => a.position - b.position)
-    .map((l): RecipeIngredient => ({ id: l.id, ingredientId: l.ingredient_id ?? '', amount: num(l.amount), unit: l.unit })),
+    .map((l): RecipeIngredient => ({ id: l.id, ingredientId: l.ingredient_id ?? '', subRecipeId: l.sub_recipe_id ?? null, amount: num(l.amount), unit: l.unit })),
+  labor: laborFromJson(r.labor),
+  packagingPerUnit: num(r.packaging_per_unit, 0),
+  crossContact: (r.cross_contact ?? []).filter((c): c is Recipe['crossContact'][number] => (ALLERGEN_CODES as string[]).includes(c)),
   steps: r.steps ?? [],
   riseMinutes: r.rise_minutes,
   bakeMinutes: r.bake_minutes,
@@ -186,8 +221,13 @@ export const recipeToRpc = (r: Recipe) => ({
     store_price_per_item: r.storePricePerItem,
     notes: r.notes,
     energy: r.energy,
+    labor: (r.labor ?? []).slice(0, 50).map((l) => ({ id: l.id, roleId: l.roleId, people: clamp(l.people, 0, 1000), minutes: clamp(l.minutes, 0, 100000) })),
+    packaging_per_unit: clamp(r.packagingPerUnit || 0, 0, 100000),
+    cross_contact: r.crossContact ?? [],
   },
-  lines: r.ingredients.map((l) => ({ id: l.id, ingredient_id: l.ingredientId || null, amount: l.amount, unit: l.unit })),
+  lines: r.ingredients.map((l) => l.subRecipeId
+    ? { id: l.id, ingredient_id: null, sub_recipe_id: l.subRecipeId, amount: l.amount, unit: l.unit }
+    : { id: l.id, ingredient_id: l.ingredientId || null, sub_recipe_id: null, amount: l.amount, unit: l.unit }),
 })
 
 export const equipmentFromRow = (r: EquipmentRow): EquipmentItem => ({
@@ -209,8 +249,6 @@ export const equipmentFromRow = (r: EquipmentRow): EquipmentItem => ({
   comment: r.comment ?? '',
 })
 
-const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Number.isFinite(n) ? n : lo))
-
 /** Argument til RPC-en save_equipment. Verdiene holdes innenfor databasens grenser. */
 export const equipmentToRpc = (e: EquipmentItem) => ({
   id: e.id,
@@ -229,6 +267,32 @@ export const equipmentToRpc = (e: EquipmentItem) => ({
   hours_per_day: clamp(e.hoursPerDay, 0, 24),
   is_estimate: e.isEstimate,
   comment: e.comment,
+})
+
+function menuItemsFromJson(v: unknown): MenuItem[] {
+  if (!Array.isArray(v)) return []
+  return v
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+    .map((x, i) => ({ id: String(x.id ?? `m${i}`), recipeId: String(x.recipeId ?? ''), name: String(x.name ?? ''), price: num(x.price, 0), vatPercent: num(x.vatPercent, 15) }))
+}
+
+export const menuFromRow = (r: MenuRow): Menu => ({
+  id: r.id,
+  name: r.name,
+  type: MENU_TYPES.includes(r.menu_type as Menu['type']) ? (r.menu_type as Menu['type']) : 'egen',
+  description: r.description ?? '',
+  items: menuItemsFromJson(r.items),
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+})
+
+/** Argument til RPC-en save_menu. */
+export const menuToRpc = (m: Menu) => ({
+  id: m.id,
+  name: m.name.trim(),
+  menu_type: m.type,
+  description: m.description,
+  items: m.items.slice(0, 300).map((i) => ({ id: i.id, recipeId: i.recipeId, name: i.name.trim(), price: clamp(i.price, 0, 1000000), vatPercent: clamp(i.vatPercent, 0, 100) })),
 })
 
 const optNum = (v: number | string | null) => (v === null || v === undefined ? null : num(v))
@@ -340,6 +404,8 @@ export function buildAppData(parts: {
   recipes: RecipeRow[]
   history: HistoryRow[]
   equipment?: EquipmentRow[]
+  costs?: Partial<CostSettings> | null
+  menus?: MenuRow[]
 }): AppData {
   return {
     version: DATA_VERSION,
@@ -348,6 +414,8 @@ export function buildAppData(parts: {
     recipes: parts.recipes.map(recipeFromRow),
     history: parts.history.map(historyFromRow),
     equipment: (parts.equipment ?? []).map(equipmentFromRow),
+    costs: normalizeCostSettings(parts.costs),
+    menus: (parts.menus ?? []).map(menuFromRow),
   }
 }
 

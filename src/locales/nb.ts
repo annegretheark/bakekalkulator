@@ -9,6 +9,8 @@ export const nb = {
   'nav.recipes': 'Mine oppskrifter',
   'nav.ingredients': 'Ingredienser',
   'nav.equipment': 'Utstyr',
+  'nav.costs': 'Personal og drift',
+  'nav.menus': 'Menyer',
   'nav.history': 'Bakehistorikk',
   'nav.sales': 'Salg og fortjeneste',
   'nav.settings': 'Innstillinger',

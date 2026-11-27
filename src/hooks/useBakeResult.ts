@@ -2,6 +2,8 @@ import { useMemo } from 'react'
 import { computeBake } from '../utils/bake'
 import { useData } from './useData'
 import { useCheapestWindow, usePriceData } from './usePriceData'
+import { useCostContext } from './useRecipeCosts'
+import { subRecipeLineCost } from '../utils/recipeCost'
 
 /**
  * Beregner resultatet for kalkulatorens gjeldende utkast.
@@ -13,6 +15,7 @@ export function useBakeResult() {
   const prices = usePriceData()
   const { window } = useCheapestWindow(draft.energy)
   const recipe = data.recipes.find((r) => r.id === draft.recipeId) ?? null
+  const costCtx = useCostContext()
 
   return useMemo(() => {
     let price: number | null = null
@@ -35,7 +38,9 @@ export function useBakeResult() {
       pricePerKwh: price,
       storePricePerItem: draft.storePricePerItem,
       bakesPerMonth: data.settings.bakesPerMonth,
+      // Underoppskrifter regnes med samme strømpris som resten av beregningen
+      resolveSub: (l) => subRecipeLineCost(l, { ...costCtx, pricePerKwh: price }),
     })
     return { result, pricePerKwh: price, priceSource, fallback, recipe, window }
-  }, [draft, recipe, data.ingredients, data.settings, prices.currentTotal, prices.todayAverage, window])
+  }, [draft, recipe, data.ingredients, data.settings, prices.currentTotal, prices.todayAverage, window, costCtx])
 }

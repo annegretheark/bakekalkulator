@@ -1,5 +1,5 @@
-import type { AppData, AppSettings, BakeLog, BusinessType, EquipmentItem, Id, Ingredient, Recipe } from '../../types'
-import { normalizeRecipe } from '../../utils/portions'
+import type { AppData, AppSettings, BakeLog, BusinessType, CostSettings, EquipmentItem, Id, Ingredient, Menu, Recipe } from '../../types'
+import { normalizeCostSettings, normalizeIngredient, normalizeMenu, normalizeRecipe } from '../../utils/portions'
 import { defaultSettings } from '../../lib/defaults'
 import { DATA_VERSION, seedData } from '../../lib/seed'
 import type { DataRepository } from './repository'
@@ -21,10 +21,12 @@ function migrate(raw: Partial<AppData>): AppData {
   return {
     version: DATA_VERSION,
     settings: { ...def, ...s, price: { ...def.price, ...(s.price ?? {}) } },
-    ingredients: Array.isArray(raw.ingredients) ? raw.ingredients : [],
+    ingredients: Array.isArray(raw.ingredients) ? raw.ingredients.map(normalizeIngredient) : [],
     recipes: Array.isArray(raw.recipes) ? raw.recipes.map(normalizeRecipe) : [],
     history: Array.isArray(raw.history) ? raw.history : [],
     equipment: Array.isArray(raw.equipment) ? raw.equipment : [],
+    costs: normalizeCostSettings(raw.costs),
+    menus: Array.isArray(raw.menus) ? raw.menus.map(normalizeMenu) : [],
   }
 }
 
@@ -89,4 +91,7 @@ export class LocalStorageRepository implements DataRepository {
   upsertEquipment(item: EquipmentItem) { return this.update((d) => ({ ...d, equipment: upsert(d.equipment, item) })) }
   deleteEquipment(id: Id) { return this.update((d) => ({ ...d, equipment: d.equipment.filter((x) => x.id !== id) })) }
   saveBusinessType(t: BusinessType) { return this.update((d) => ({ ...d, settings: { ...d.settings, businessType: t } })) }
+  saveCostSettings(c: CostSettings) { return this.update((d) => ({ ...d, costs: c })) }
+  upsertMenu(item: Menu) { return this.update((d) => ({ ...d, menus: upsert(d.menus, item) })) }
+  deleteMenu(id: Id) { return this.update((d) => ({ ...d, menus: d.menus.filter((x) => x.id !== id) })) }
 }

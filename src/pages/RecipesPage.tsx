@@ -1,14 +1,18 @@
 import { useState } from 'react'
-import { ArrowLeft, BookOpen, Calculator, Clock, Copy, Gauge, Pencil, Plus, Scale, ScanText, Trash2, Wheat } from 'lucide-react'
-import { BAKE_TYPES, RECIPE_CATEGORIES, UNITS, type BakeType, type Recipe, type RecipeCategory, type Unit, type YieldUnit } from '../types'
+import { ArrowLeft, BookOpen, Calculator, Clock, Copy, Gauge, Layers, Pencil, Plus, Scale, ScanText, ShieldAlert, Trash2, Users, Wheat } from 'lucide-react'
+import { ALLERGEN_CODES, BAKE_TYPES, RECIPE_CATEGORIES, UNITS, type BakeType, type Recipe, type RecipeCategory, type Unit, type YieldUnit } from '../types'
 import { useData, useFormat, useT } from '../hooks/useData'
-import { usePriceData } from '../hooks/usePriceData'
+import { useAuth } from '../hooks/useAuth'
+import { useRecipeBreakdown, useReferencePrice, type RecipeBreakdown } from '../hooks/useRecipeCosts'
 import { useBusiness } from '../hooks/useBusiness'
 import { Card, EmptyState, Notice, NumberField, PageHeader, Segmented, SelectField, TextField } from '../components/ui'
 import { EquipmentUsesEditor } from '../components/EquipmentUsesEditor'
 import { defaultEnergyInput } from '../lib/defaults'
 import { RECIPE_CATEGORY_NAMES, yieldWord, type BusinessProfile } from '../lib/businessTypes'
-import { computeBake } from '../utils/bake'
+import { recipesUsingSub, subRecipeCandidates } from '../utils/recipeCost'
+import { LaborEditor } from '../components/LaborEditor'
+import { AllergenProfileView } from '../components/Allergens'
+import { ALLERGEN_NAMES } from '../lib/allergens'
 import { formatMoney, formatNumber, uid } from '../utils/format'
 import { isCompatible } from '../utils/units'
 import { bakeTypeForCategory, costPerKg, scaledWeightG, weightPerUnitG } from '../utils/portions'
@@ -20,7 +24,7 @@ const newRecipe = (p: BusinessProfile): Recipe => {
   return {
     id: uid(), name: '', type: bakeTypeForCategory(p.defaultCategory, 'brod'), category: p.defaultCategory,
     yieldCount: p.defaultYieldUnit === 'porsjoner' ? 4 : 1, yieldUnit: p.defaultYieldUnit, prepMinutes: 0, finishedWeightG: null,
-    ingredients: [], steps: [''], riseMinutes: p.defaultCategory === 'brod_bakervarer' ? 60 : 0, bakeMinutes: p.defaultCategory === 'brod_bakervarer' ? 45 : 0,
+    ingredients: [], labor: [], packagingPerUnit: 0, crossContact: [], steps: [''], riseMinutes: p.defaultCategory === 'brod_bakervarer' ? 60 : 0, bakeMinutes: p.defaultCategory === 'brod_bakervarer' ? 45 : 0,
     storePricePerItem: 0, notes: '', energy: defaultEnergyInput(), createdAt: now, updatedAt: now,
   }
 }
@@ -32,19 +36,16 @@ export function RecipesPage() {
   const f = useFormat()
   const { data, upsertRecipe, deleteRecipe, setDraft } = useData()
   const { profile } = useBusiness()
-  const prices = usePriceData()
+  const auth = useAuth()
+  const canEditCosts = !(auth.user && auth.activeOrg && auth.activeOrg.role === 'member')
+  const breakdown = useRecipeBreakdown()
+  const { source: priceSource } = useReferencePrice()
   const [editing, setEditing] = useState<Recipe | null>(null)
   const [viewing, setViewing] = useState<string | null>(null)
   const [scaleTo, setScaleTo] = useState<number | null>(null)
   const [scanning, setScanning] = useState(false)
   const [scanInfo, setScanInfo] = useState<string | null>(null)
   const [filter, setFilter] = useState<RecipeCategory | ''>('')
-  const price = prices.todayAverage ?? prices.currentTotal ?? data.settings.price.manualTotalKrPerKwh
-
-  const cost = (r: Recipe, count = r.yieldCount) => computeBake({
-    energy: { ...r.energy, bakeMinutes: r.bakeMinutes || r.energy.bakeMinutes }, count, recipe: r, ingredients: data.ingredients,
-    pricePerKwh: price, storePricePerItem: r.storePricePerItem, bakesPerMonth: data.settings.bakesPerMonth,
-  })
 
   const openInCalculator = (r: Recipe, count = r.yieldCount) => {
     setDraft((d) => ({ ...d, recipeId: r.id, name: r.name, type: r.type, count, storePricePerItem: r.storePricePerItem, energy: { ...r.energy, bakeMinutes: r.bakeMinutes || r.energy.bakeMinutes } }))
@@ -56,14 +57,28 @@ export function RecipesPage() {
     upsertRecipe({ ...structuredClone(r), id: uid(), name: `${r.name} (kopi)`, ingredients: r.ingredients.map((i) => ({ ...i, id: uid() })), createdAt: now, updatedAt: now })
   }
 
+  const remove = (r: Recipe) => {
+    const users = recipesUsingSub(data.recipes, r.id)
+    const warn = users.length ? ` Den brukes som underoppskrift i ${users.map((u) => `«${u.name}»`).join(', ')}, og disse mister kostnaden fra den.` : ''
+    if (confirm(`Slette «${r.name}»?${warn} Historikken beholdes.`)) deleteRecipe(r.id)
+  }
+
   // ---------- Redigering ----------
   if (editing) {
     const e = editing
     const set = (p: Partial<Recipe>) => setEditing({ ...e, ...p })
-    const valid = e.name.trim() && e.yieldCount > 0 && e.ingredients.every((i) => i.ingredientId && i.amount >= 0)
-    const live = cost(e)
+    const valid = e.name.trim() && e.yieldCount > 0 && e.ingredients.every((i) => (i.ingredientId || i.subRecipeId) && i.amount >= 0)
+    const others = data.recipes.filter((r) => r.id !== e.id)
+    const bd = breakdown(e, e.yieldCount, [...others, e])
+    const live = bd.bake
     const word = yieldWord(e.yieldUnit)
-    const perKg = costPerKg(live.totalCost, scaledWeightG(e, e.yieldCount))
+    const perKg = costPerKg(bd.total, scaledWeightG(e, e.yieldCount))
+    const subs = subRecipeCandidates([...others, e], e.id).filter((r) => r.id !== e.id)
+    const lineOptions = [
+      { value: '', label: '— Velg —' },
+      ...data.ingredients.map((i) => ({ value: i.id, label: i.name })),
+      ...subs.map((r) => ({ value: `sub:${r.id}`, label: `Underoppskrift: ${r.name}` })),
+    ]
     const isBakery = e.category === 'brod_bakervarer'
     return (
       <>
@@ -104,27 +119,64 @@ export function RecipesPage() {
               </div>
             </Card>
 
-            <Card title="Ingredienser" icon={Wheat}>
+            <Card title="Ingredienser og underoppskrifter" icon={Wheat}>
               {data.ingredients.length === 0 && <Notice tone="warn">Registeret er tomt. <button className="link" onClick={() => navigate('ingredienser')}>Legg inn ingredienser</button> først.</Notice>}
               {e.ingredients.map((ri, idx) => {
-                const ing = data.ingredients.find((i) => i.id === ri.ingredientId)
+                const ing = ri.subRecipeId ? undefined : data.ingredients.find((i) => i.id === ri.ingredientId)
                 const incompatible = ing && !isCompatible(ing.unit, ri.unit)
+                const subError = ri.subRecipeId ? live.ingredientLines[idx]?.error : undefined
                 return (
                   <div key={ri.id} className="ingredient-row">
-                    <SelectField label={idx === 0 ? 'Ingrediens' : ''} value={ri.ingredientId} onChange={(v) => {
+                    <SelectField label={idx === 0 ? 'Ingrediens' : ''} value={ri.subRecipeId ? `sub:${ri.subRecipeId}` : ri.ingredientId} onChange={(v) => {
+                      if (v.startsWith('sub:')) {
+                        const subId = v.slice(4)
+                        const sub = data.recipes.find((r) => r.id === subId)
+                        const unit: Unit = sub?.finishedWeightG ? 'g' : 'stk'
+                        set({ ingredients: e.ingredients.map((x) => (x.id === ri.id ? { ...x, ingredientId: '', subRecipeId: subId, unit } : x)) })
+                        return
+                      }
                       const target = data.ingredients.find((i) => i.id === v)
                       const unit: Unit = target && !isCompatible(target.unit, ri.unit) ? (target.unit === 'kg' ? 'g' : target.unit === 'l' ? 'dl' : target.unit) : ri.unit
-                      set({ ingredients: e.ingredients.map((x) => (x.id === ri.id ? { ...x, ingredientId: v, unit } : x)) })
-                    }} options={[{ value: '', label: '— Velg —' }, ...data.ingredients.map((i) => ({ value: i.id, label: i.name }))]} />
+                      set({ ingredients: e.ingredients.map((x) => (x.id === ri.id ? { ...x, ingredientId: v, subRecipeId: null, unit } : x)) })
+                    }} options={ri.subRecipeId && !subs.some((r) => r.id === ri.subRecipeId)
+                      ? [...lineOptions, { value: `sub:${ri.subRecipeId}`, label: 'Underoppskrift (finnes ikke / sirkulær)' }]
+                      : lineOptions} />
                     <NumberField label={idx === 0 ? 'Mengde' : ''} value={ri.amount} onChange={(v) => set({ ingredients: e.ingredients.map((x) => (x.id === ri.id ? { ...x, amount: v } : x)) })} />
                     <SelectField<Unit> label={idx === 0 ? 'Enhet' : ''} value={ri.unit} onChange={(v) => set({ ingredients: e.ingredients.map((x) => (x.id === ri.id ? { ...x, unit: v } : x)) })} options={UNITS.map((u) => ({ value: u, label: u }))} />
                     <span className="num row-cost">{formatMoney(live.ingredientLines[idx]?.cost ?? null, f)}</span>
                     <button className="icon-btn danger" aria-label="Fjern ingrediens" onClick={() => set({ ingredients: e.ingredients.filter((x) => x.id !== ri.id) })}><Trash2 size={16} /></button>
+                    {subError && <small className="error full">{subError}</small>}
                     {incompatible && <small className="error full">Kan ikke regne {ri.unit} om til {ing.unit} uten kjent tetthet. Velg en {ing.unit === 'stk' ? 'stk' : ['g', 'kg'].includes(ing.unit) ? 'vektenhet' : 'volumenhet'}.</small>}
                   </div>
                 )
               })}
               <button className="btn ghost" disabled={data.ingredients.length === 0} onClick={() => set({ ingredients: [...e.ingredients, { id: uid(), ingredientId: data.ingredients[0]?.id ?? '', amount: 100, unit: data.ingredients[0]?.unit === 'kg' ? 'g' : data.ingredients[0]?.unit ?? 'g' }] })}><Plus size={16} /> Legg til ingrediens</button>
+              {subs.length > 0 && <p className="muted small"><Layers size={14} aria-hidden /> Velg «Underoppskrift» i listen for å bruke en saus, deig eller dressing. Mengden oppgis i g/kg (krever ferdig vekt) eller stk/porsjoner.</p>}
+            </Card>
+
+            <Card title="Arbeidstid og emballasje" icon={Users}>
+              <LaborEditor lines={e.labor} roles={data.costs.staffRoles} onChange={(labor) => set({ labor })} canEditRoles={canEditCosts} />
+              <div className="form-grid">
+                <NumberField label="Emballasje" value={e.packagingPerUnit} max={100000} onChange={(v) => set({ packagingPerUnit: v })} suffix={`kr/${yieldWord(e.yieldUnit, 1)}`} hint="Boks, pose, beger, serviett" />
+              </div>
+            </Card>
+
+            <Card title="Allergener" icon={ShieldAlert}>
+              <AllergenProfileView profile={bd.full.base.allergens} />
+              {bd.full.base.uncheckedAllergens && <Notice tone="warn">Noen ingredienser har allergener som ikke er kontrollert. Kontroller dem under Ingredienser.</Notice>}
+              <fieldset className="checks">
+                <legend>Risiko for krysskontakt i produksjonen</legend>
+                <div className="check-grid">
+                  {ALLERGEN_CODES.map((c) => (
+                    <label key={c} className="check">
+                      <input type="checkbox" checked={e.crossContact.includes(c)}
+                        onChange={(ev) => set({ crossContact: ev.target.checked ? [...e.crossContact, c] : e.crossContact.filter((x) => x !== c) })} />
+                      {ALLERGEN_NAMES[c]}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <p className="muted small">Allergenene beregnes fra ingrediensene og underoppskriftene. Et allergen vises bare som «Inneholder ikke» når alle ingrediensene er kontrollert for det.</p>
             </Card>
 
             <Card title="Utstyr og strøm" icon={Gauge}>
@@ -147,16 +199,10 @@ export function RecipesPage() {
 
           <div className="stack sticky">
             <Card title="Kostnad" icon={Calculator}>
-              <dl className="kv">
-                <dt>Ingredienser</dt><dd>{formatMoney(live.ingredientCost, f)}</dd>
-                <dt>Strøm (estimert)</dt><dd>{formatMoney(live.electricityCost, f)}</dd>
-                <dt>Totalt</dt><dd><strong>{formatMoney(live.totalCost, f)}</strong></dd>
-                <dt>Per {yieldWord(e.yieldUnit, 1)}</dt><dd><strong>{formatMoney(live.costPerItem, f)}</strong></dd>
-                {perKg !== null && <><dt>Per kilo</dt><dd>{formatMoney(perKg, f)}</dd></>}
-                {profile.showStorePrice && live.savings && <><dt>Spart per {profile.productionWord}</dt><dd>{formatMoney(live.savings.perBake, f)}</dd></>}
-              </dl>
-              {live.missingIngredientCosts > 0 && <Notice tone="warn">{live.missingIngredientCosts} ingrediens(er) kan ikke prisberegnes.</Notice>}
-              <p className="muted small">Strøm estimeres med oppskriftens utstyr og dagens snittpris.</p>
+              <CostList bd={bd} unit={yieldWord(e.yieldUnit, 1)} perKg={perKg} />
+              {profile.showStorePrice && live.savings && <dl className="kv"><dt>Spart per {profile.productionWord}</dt><dd>{formatMoney(live.savings.perBake, f)}</dd></dl>}
+              {live.missingIngredientCosts > 0 && <Notice tone="warn">{live.missingIngredientCosts} linje(r) kan ikke prisberegnes.</Notice>}
+              <p className="muted small">Strøm estimeres med oppskriftens utstyr og {priceSource}.</p>
             </Card>
             <div className="actions">
               <button className="btn primary" disabled={!valid} onClick={async () => { setScanInfo(null); await upsertRecipe({ ...e, name: e.name.trim(), steps: e.steps.filter((s) => s.trim()), updatedAt: new Date().toISOString() }); setEditing(null); setViewing(e.id) }}>Lagre oppskrift</button>
@@ -172,10 +218,11 @@ export function RecipesPage() {
   const shown = viewing ? data.recipes.find((r) => r.id === viewing) : null
   if (shown) {
     const count = scaleTo ?? shown.yieldCount
-    const res = cost(shown, count)
+    const bd = breakdown(shown, count)
+    const res = bd.bake
     const word = yieldWord(shown.yieldUnit, count)
     const weight = scaledWeightG(shown, count)
-    const perKg = costPerKg(res.totalCost, weight)
+    const perKg = costPerKg(bd.total, weight)
     const perUnitWeight = weightPerUnitG(shown)
     return (
       <>
@@ -215,11 +262,9 @@ export function RecipesPage() {
                 {shown.prepMinutes > 0 && <><dt><Clock size={14} /> Tilberedning</dt><dd>{shown.prepMinutes} min</dd></>}
                 {shown.riseMinutes > 0 && <><dt><Clock size={14} /> Hevetid</dt><dd>{shown.riseMinutes} min</dd></>}
                 <dt><Clock size={14} /> Steke-/koketid</dt><dd>{shown.bakeMinutes} min{shown.energy.temperatureC ? ` · ${shown.energy.temperatureC} °C` : ''}</dd>
-                <dt>Ingredienser</dt><dd>{formatMoney(res.ingredientCost, f)}</dd>
-                <dt>Strøm</dt><dd>{formatMoney(res.electricityCost, f)}</dd>
-                <dt>Totalt ({count} {word})</dt><dd><strong>{formatMoney(res.totalCost, f)}</strong></dd>
-                <dt>Per {yieldWord(shown.yieldUnit, 1)}</dt><dd><strong>{formatMoney(res.costPerItem, f)}</strong></dd>
-                {perKg !== null && <><dt>Per kilo</dt><dd>{formatMoney(perKg, f)}</dd></>}
+              </dl>
+              <CostList bd={bd} unit={yieldWord(shown.yieldUnit, 1)} perKg={perKg} label={`${count} ${word}`} />
+              <dl className="kv">
                 {perUnitWeight !== null && <><dt>Vekt per {yieldWord(shown.yieldUnit, 1)}</dt><dd>{formatNumber(perUnitWeight, 0, f.locale)} g</dd></>}
                 {profile.showStorePrice && <><dt>Butikkpris</dt><dd>{shown.storePricePerItem ? formatMoney(shown.storePricePerItem, f) : '–'}</dd></>}
                 {profile.showStorePrice && res.savings && <><dt>Spart per {profile.productionWord}</dt><dd className="pos">{formatMoney(res.savings.perBake, f)}</dd></>}
@@ -227,6 +272,10 @@ export function RecipesPage() {
               {shown.energy.energySource === 'equipment' && (shown.energy.equipmentUses?.length ?? 0) > 0 && (
                 <p className="muted small">Utstyr: {shown.energy.equipmentUses!.map((u) => u.name).join(', ')}</p>
               )}
+            </Card>
+            <Card title="Allergener" icon={ShieldAlert}>
+              <AllergenProfileView profile={bd.full.base.allergens} />
+              {bd.full.base.uncheckedAllergens && <Notice tone="warn">Noen ingredienser har allergener som ikke er kontrollert.</Notice>}
             </Card>
           </div>
         </div>
@@ -263,17 +312,18 @@ export function RecipesPage() {
       ) : (
         <div className="cards-grid">
           {list.map((r) => {
-            const res = cost(r)
+            const bd = breakdown(r)
+            const res = bd.bake
             const per = yieldWord(r.yieldUnit, 1)
             return (
               <article key={r.id} className="recipe-card">
                 <button className="recipe-main" onClick={() => setViewing(r.id)}>
                   <span className="pill">{RECIPE_CATEGORY_NAMES[r.category]}</span>
                   <h3>{r.name}</h3>
-                  <p className="muted small">{r.yieldCount} {yieldWord(r.yieldUnit, r.yieldCount)} · {r.ingredients.length} ingredienser · {r.prepMinutes + r.riseMinutes + r.bakeMinutes} min</p>
+                  <p className="muted small">{r.yieldCount} {yieldWord(r.yieldUnit, r.yieldCount)} · {r.ingredients.length} linjer · {r.prepMinutes + r.riseMinutes + r.bakeMinutes} min</p>
                   <div className="recipe-figures">
-                    <span><small>Totalt</small><strong>{formatMoney(res.totalCost, f)}</strong></span>
-                    <span><small>Per {per}</small><strong>{formatMoney(res.costPerItem, f)}</strong></span>
+                    <span><small>Totalt</small><strong>{formatMoney(bd.total, f)}</strong></span>
+                    <span><small>Per {per}</small><strong>{formatMoney(bd.perUnit, f)}</strong></span>
                     {profile.showStorePrice && res.savings && <span><small>Spart</small><strong className="pos">{formatMoney(res.savings.perBake, f, 0)}</strong></span>}
                   </div>
                 </button>
@@ -281,13 +331,33 @@ export function RecipesPage() {
                   <button className="icon-btn" aria-label="Beregn" title="Åpne i kalkulator" onClick={() => openInCalculator(r)}><Calculator size={16} /></button>
                   <button className="icon-btn" aria-label="Rediger" title="Rediger" onClick={() => setEditing(structuredClone(r))}><Pencil size={16} /></button>
                   <button className="icon-btn" aria-label="Kopier" title="Kopier" onClick={() => copy(r)}><Copy size={16} /></button>
-                  <button className="icon-btn danger" aria-label="Slett" title="Slett" onClick={() => confirm(`Slette «${r.name}»? Historikken beholdes.`) && deleteRecipe(r.id)}><Trash2 size={16} /></button>
+                  <button className="icon-btn danger" aria-label="Slett" title="Slett" onClick={() => remove(r)}><Trash2 size={16} /></button>
                 </div>
               </article>
             )
           })}
         </div>
       )}
+    </>
+  )
+}
+
+/** Kostnadsoppstilling: råvarer, strøm, personal, emballasje, drift. Tomme poster vises ikke. */
+function CostList({ bd, unit, perKg, label }: { bd: RecipeBreakdown; unit: string; perKg: number | null; label?: string }) {
+  const f = useFormat()
+  return (
+    <>
+      <dl className="kv">
+        <dt>Råvarer</dt><dd>{formatMoney(bd.bake.ingredientCost, f)}</dd>
+        <dt>Strøm (estimert)</dt><dd>{formatMoney(bd.bake.electricityCost, f)}</dd>
+        {bd.labor > 0 && <><dt>Personal</dt><dd>{formatMoney(bd.labor, f)}</dd></>}
+        {bd.packaging > 0 && <><dt>Emballasje</dt><dd>{formatMoney(bd.packaging, f)}</dd></>}
+        {bd.overhead > 0 && <><dt>Driftskostnader</dt><dd>{formatMoney(bd.overhead, f)}</dd></>}
+        <dt>Totalt{label ? ` (${label})` : ''}</dt><dd><strong>{formatMoney(bd.total, f)}</strong></dd>
+        <dt>Per {unit}</dt><dd><strong>{formatMoney(bd.perUnit, f)}</strong></dd>
+        {perKg !== null && <><dt>Per kilo</dt><dd>{formatMoney(perKg, f)}</dd></>}
+      </dl>
+      {bd.full.overheadMissing && <Notice tone="warn">Driftskostnadene er ikke fordelt: oppgi antall per måned under Kostnader.</Notice>}
     </>
   )
 }

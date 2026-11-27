@@ -1,5 +1,6 @@
 import type { AppData } from '../types'
 import { dbErrorMessage } from './storage/mappers'
+import { cleanAllergenMap } from '../lib/allergens'
 
 /**
  * Import av lokale oppskrifter og ingredienser til en Supabase-organisasjon.
@@ -15,12 +16,15 @@ export interface ImportPayload {
   ingredients: {
     local_id: string; name: string; category: string; package_size: number; unit: string
     price: number; store: string; price_updated: string
+    allergens: Record<string, string>; allergens_checked: boolean
   }[]
   recipes: {
     local_id: string; name: string; type: string; yield_count: number; steps: string[]
     rise_minutes: number; bake_minutes: number; store_price_per_item: number; notes: string
     energy: unknown
-    ingredients: { ingredient_local_id: string | null; amount: number; unit: string }[]
+    category: string; yield_unit: string; prep_minutes: number; finished_weight_g: number | null
+    packaging_per_unit: number; cross_contact: string[]
+    ingredients: { ingredient_local_id: string | null; sub_recipe_local_id: string | null; amount: number; unit: string }[]
   }[]
 }
 
@@ -36,6 +40,7 @@ const validLocalId = (id: unknown): id is string => typeof id === 'string' && id
 /** Bygger nyttelasten. Rader uten gyldig lokal id utelates (serveren krever den for duplikatkontroll). */
 export function buildImportPayload(data: Pick<AppData, 'ingredients' | 'recipes'>): ImportPayload {
   const ingredientIds = new Set(data.ingredients.filter((i) => validLocalId(i.id)).map((i) => i.id.trim()))
+  const recipeIds = new Set(data.recipes.filter((r) => validLocalId(r.id)).map((r) => r.id.trim()))
   return {
     ingredients: data.ingredients
       .filter((i) => validLocalId(i.id) && i.name.trim() && i.packageSize > 0 && i.price >= 0)
@@ -48,6 +53,8 @@ export function buildImportPayload(data: Pick<AppData, 'ingredients' | 'recipes'
         price: Math.round(i.price * 100) / 100,
         store: (i.store ?? '').slice(0, 200),
         price_updated: /^\d{4}-\d{2}-\d{2}$/.test(i.priceUpdated) ? i.priceUpdated : new Date().toISOString().slice(0, 10),
+        allergens: cleanAllergenMap(i.allergens),
+        allergens_checked: i.allergensChecked !== false,
       })),
     recipes: data.recipes
       .filter((r) => validLocalId(r.id) && r.name.trim() && r.yieldCount >= 1)
@@ -62,8 +69,16 @@ export function buildImportPayload(data: Pick<AppData, 'ingredients' | 'recipes'
         store_price_per_item: r.storePricePerItem,
         notes: r.notes ?? '',
         energy: r.energy,
+        category: r.category ?? 'annet',
+        yield_unit: r.yieldUnit === 'porsjoner' ? 'porsjoner' : 'stk',
+        prep_minutes: Math.round(r.prepMinutes || 0),
+        finished_weight_g: r.finishedWeightG && r.finishedWeightG > 0 ? r.finishedWeightG : null,
+        // Arbeidstid importeres ikke: rollene (personalkostnader) er lokale og følger ikke med
+        packaging_per_unit: r.packagingPerUnit > 0 ? r.packagingPerUnit : 0,
+        cross_contact: r.crossContact ?? [],
         ingredients: r.ingredients.map((l) => ({
-          ingredient_local_id: ingredientIds.has(l.ingredientId) ? l.ingredientId : null,
+          ingredient_local_id: !l.subRecipeId && ingredientIds.has(l.ingredientId) ? l.ingredientId : null,
+          sub_recipe_local_id: l.subRecipeId && recipeIds.has(l.subRecipeId) && l.subRecipeId !== r.id ? l.subRecipeId : null,
           amount: l.amount,
           unit: l.unit,
         })),
