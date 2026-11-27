@@ -252,6 +252,9 @@ tr.warn-row td { background: var(--wheat-soft); }
 .ingredient-row { display: grid; grid-template-columns: 2fr 1fr 90px 90px 36px; gap: 8px; align-items: end; }
 .ingredient-row .row-cost { padding-bottom: 10px; }
 .ingredient-row .full { grid-column: 1 / -1; }
+.oven-block { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.oven-head { display: flex; gap: 8px; align-items: end; margin-bottom: 8px; }
+.oven-head > :first-child { flex: 1; max-width: 320px; }
 .equipment-row { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr 36px; gap: 8px; align-items: end; }
 .steps, .steps-edit { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
 .steps-edit li { display: flex; gap: 6px; align-items: flex-start; }

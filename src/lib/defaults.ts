@@ -107,6 +107,7 @@ export function defaultEnergyInput(): EnergyInput {
     mixerMinutes: 10,
     mixerPowerPercent: 60,
     otherEquipment: [],
+    extraOvens: [],
     useMeasured: false,
     measuredKwh: 0,
   }

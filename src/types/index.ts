@@ -101,6 +101,18 @@ export interface Equipment {
   powerFactorPercent: number
 }
 
+/** En ekstra ovn som brukes samtidig med hovedovnen. */
+export interface Oven {
+  id: Id
+  name: string
+  watt: number
+  preheatMinutes: number
+  preheatPowerPercent: number
+  bakeMinutes: number
+  bakePowerPercent: number
+  rounds: number
+}
+
 export interface EnergyInput {
   ovenWatt: number
   temperatureC: number
@@ -113,6 +125,8 @@ export interface EnergyInput {
   mixerMinutes: number
   mixerPowerPercent: number
   otherEquipment: Equipment[]
+  /** Ekstra ovner (hovedovnen er feltene over). Mangler i eldre lagrede data. */
+  extraOvens?: Oven[]
   useMeasured: boolean
   measuredKwh: number
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Calculator, Clock, CookingPot, Gauge, Layers, Plus, Save, Trash2, Zap } from 'lucide-react'
-import { BAKE_TYPES, type BakeType, type CustomerType, type EnergyInput } from '../types'
+import { BAKE_TYPES, type BakeType, type CustomerType, type EnergyInput, type Oven } from '../types'
 import { useData, useFormat, useT } from '../hooks/useData'
 import { useBakeResult } from '../hooks/useBakeResult'
 import { Card, Notice, NumberField, PageHeader, Segmented, SelectField, TextField, Toggle } from '../components/ui'
@@ -29,6 +29,13 @@ export function CalculatorPage() {
 
   const setE = <K extends keyof EnergyInput>(k: K, v: EnergyInput[K]) => setDraft((d) => ({ ...d, energy: { ...d.energy, [k]: v } }))
   const e = draft.energy
+  const extraOvens = e.extraOvens ?? []
+  const setOven = (id: string, patch: Partial<Oven>) => setE('extraOvens', extraOvens.map((o) => (o.id === id ? { ...o, ...patch } : o)))
+  const addOven = () => setE('extraOvens', [...extraOvens, {
+    id: uid(), name: `Ovn ${extraOvens.length + 2}`, watt: e.ovenWatt,
+    preheatMinutes: e.preheatMinutes, preheatPowerPercent: e.preheatPowerPercent,
+    bakeMinutes: e.bakeMinutes, bakePowerPercent: e.bakePowerPercent, rounds: e.rounds,
+  }])
 
   const pickRecipe = (id: string) => {
     const r = data.recipes.find((x) => x.id === id)
@@ -87,7 +94,7 @@ export function CalculatorPage() {
             </button>
           )}>
             <div className="form-grid">
-              <NumberField label="Ovnens effekt" value={e.ovenWatt} onChange={(v) => setE('ovenWatt', v)} suffix="W" max={100000} hint="Står på typeskiltet. Hjemmeovn ofte 2000–3600 W, bakeriovn 10 000–40 000 W (10–40 kW)" />
+              <NumberField label={extraOvens.length ? 'Ovn 1 – effekt' : 'Ovnens effekt'} value={e.ovenWatt} onChange={(v) => setE('ovenWatt', v)} suffix="W" max={100000} hint="Står på typeskiltet. Hjemmeovn ofte 2000–3600 W, bakeriovn 10 000–40 000 W (10–40 kW)" />
               <NumberField label="Steketemperatur" value={e.temperatureC} onChange={(v) => setE('temperatureC', v)} suffix="°C" max={350} hint="Til informasjon – effekten styres av effektfaktoren" />
               <NumberField label="Forvarmingstid" value={e.preheatMinutes} onChange={(v) => setE('preheatMinutes', v)} suffix="min" max={120} />
               <NumberField label="Effekt under forvarming" value={e.preheatPowerPercent} onChange={(v) => setE('preheatPowerPercent', v)} suffix="%" max={100} hint="Vanligvis tilnærmet 100 %" />
@@ -95,6 +102,24 @@ export function CalculatorPage() {
               <NumberField label="Snitteffekt under steking" value={e.bakePowerPercent} onChange={(v) => setE('bakePowerPercent', v)} suffix="%" max={100} hint="Termostaten slår av og på – typisk 40–70 %" />
               <NumberField label="Antall stekeomganger" value={e.rounds} integer min={1} max={20} onChange={(v) => setE('rounds', v)} hint="Forvarming regnes kun én gang" />
             </div>
+            {extraOvens.map((o) => (
+              <div key={o.id} className="oven-block">
+                <div className="oven-head">
+                  <TextField label="Navn" value={o.name} onChange={(v) => setOven(o.id, { name: v })} />
+                  <button className="icon-btn danger" aria-label={`Fjern ${o.name}`} onClick={() => setE('extraOvens', extraOvens.filter((x) => x.id !== o.id))}><Trash2 size={18} /></button>
+                </div>
+                <div className="form-grid">
+                  <NumberField label="Effekt" value={o.watt} suffix="W" max={100000} onChange={(v) => setOven(o.id, { watt: v })} />
+                  <NumberField label="Forvarmingstid" value={o.preheatMinutes} suffix="min" max={120} onChange={(v) => setOven(o.id, { preheatMinutes: v })} />
+                  <NumberField label="Effekt under forvarming" value={o.preheatPowerPercent} suffix="%" max={100} onChange={(v) => setOven(o.id, { preheatPowerPercent: v })} />
+                  <NumberField label="Steketid per omgang" value={o.bakeMinutes} suffix="min" max={600} onChange={(v) => setOven(o.id, { bakeMinutes: v })} />
+                  <NumberField label="Snitteffekt under steking" value={o.bakePowerPercent} suffix="%" max={100} onChange={(v) => setOven(o.id, { bakePowerPercent: v })} />
+                  <NumberField label="Antall stekeomganger" value={o.rounds} integer min={0} max={20} onChange={(v) => setOven(o.id, { rounds: v })} />
+                </div>
+              </div>
+            ))}
+            <button className="btn ghost" onClick={addOven}><Plus size={16} /> Legg til ovn</button>
+            {extraOvens.length > 0 && <p className="muted small">Ovnene regnes som brukt samtidig. Sett antall omganger til 0 for en ovn som bare forvarmes.</p>}
           </Card>
 
           <Card title="Kjøkkenmaskin og annet utstyr" icon={Zap}>
@@ -112,9 +137,7 @@ export function CalculatorPage() {
                 <button className="icon-btn danger" aria-label={`Fjern ${eq.name}`} onClick={() => setE('otherEquipment', e.otherEquipment.filter((x) => x.id !== eq.id))}><Trash2 size={18} /></button>
               </div>
             ))}
-            <button className="btn ghost" onClick={() => setE('otherEquipment', [...e.otherEquipment, { id: uid(), name: 'Hevebox', watt: 100, minutes: 60, powerFactorPercent: 50 }])}><Plus size={16} /> Legg til utstyr</button>{' '}
-            <button className="btn ghost" onClick={() => setE('otherEquipment', [...e.otherEquipment, { id: uid(), name: `Ovn ${e.otherEquipment.filter((x) => x.name.startsWith('Ovn')).length + 2}`, watt: e.ovenWatt, minutes: e.preheatMinutes + e.bakeMinutes * Math.max(1, e.rounds), powerFactorPercent: e.bakePowerPercent }])}><Plus size={16} /> Legg til ovn</button>
-            <p className="muted small">Bruker du flere ovner samtidig, legg til hver ekstra ovn med effekt og total driftstid (forvarming + steking).</p>
+            <button className="btn ghost" onClick={() => setE('otherEquipment', [...e.otherEquipment, { id: uid(), name: 'Hevebox', watt: 100, minutes: 60, powerFactorPercent: 50 }])}><Plus size={16} /> Legg til utstyr</button>
           </Card>
 
           <Card title="Målt forbruk" icon={Gauge}>

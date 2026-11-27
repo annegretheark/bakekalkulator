@@ -111,6 +111,7 @@ export const energyFromJson = (e: Partial<EnergyInput> | null | undefined): Ener
   ...defaultEnergyInput(),
   ...(e ?? {}),
   otherEquipment: Array.isArray(e?.otherEquipment) ? e.otherEquipment : [],
+  extraOvens: Array.isArray(e?.extraOvens) ? e.extraOvens : [],
 })
 
 export const recipeFromRow = (r: RecipeRow): Recipe => ({
