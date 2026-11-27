@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Building2, KeyRound, LogIn, Mail, User, UserPlus } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { navigate } from '../hooks/useRoute'
+import { readLastEmail, rememberEmail } from '../lib/lastEmail'
 import { Card, Notice, PageHeader, Segmented, TextField } from '../components/ui'
 import {
   MIN_PASSWORD_LENGTH, requestPasswordReset, resendConfirmation, signIn, signUp, updatePassword, validateRegistration,
@@ -29,7 +30,7 @@ function useSubmit() {
 
 export function LoginPage() {
   const { client, user } = useAuth()
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(readLastEmail)
   const [password, setPassword] = useState('')
   const [unconfirmed, setUnconfirmed] = useState(false)
   const [resent, setResent] = useState(false)
@@ -43,6 +44,7 @@ export function LoginPage() {
     run(async () => {
       try {
         await signIn(client as unknown as AuthClient, email, password)
+        rememberEmail(email)
         // Fra innloggingssiden: gå til oversikten. Ellers blir brukeren på siden de prøvde å åpne.
         if (/^#\/?logg-inn$/.test(window.location.hash)) navigate('oversikt')
       } catch (err) {

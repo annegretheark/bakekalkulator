@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Building2, CloudUpload, CreditCard, Download, KeyRound, LogOut, ShieldCheck, Trash2, User, UserPlus, Users } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { forgetEmail } from '../lib/lastEmail'
 import { navigate } from '../hooks/useRoute'
 import { Card, Notice, PageHeader, SelectField, TextField } from '../components/ui'
 import { PLAN_FEATURES, PLAN_NAMES, trialDaysLeft } from '../lib/plans'
@@ -331,6 +332,7 @@ function DeleteAccount({ onError }: { onError: (e: unknown) => void }) {
             await reauthenticate(client as unknown as AuthClient, user.email ?? '', password)
             const { error } = await client.rpc('delete_my_account', { confirmation: text })
             if (error) throw new Error(dbErrorMessage(error))
+            forgetEmail()
             await signOut().catch(() => {})
             alert('Kontoen er slettet.')
           } catch (e) { onError(e) } finally { setBusy(false) }

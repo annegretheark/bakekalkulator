@@ -51,4 +51,10 @@ describe('innlogging kreves når Supabase er satt opp', () => {
     await go('personvern')
     expect(screen.queryByRole('heading', { level: 1, name: 'Logg inn' })).toBeNull()
   })
+
+  it('husker e-postadressen fra forrige innlogging', async () => {
+    localStorage.setItem('rettilomma.bakekalkulator.lastEmail', 'helle@example.com')
+    await go('oversikt')
+    expect((screen.getByLabelText('E-post') as HTMLInputElement).value).toBe('helle@example.com')
+  })
 })
