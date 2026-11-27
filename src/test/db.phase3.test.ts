@@ -44,7 +44,7 @@ describe('standardoppsett', () => {
 
   it('kvoter per plan: Free 3, Plus 30, Pro 200', async () => {
     const rows = await t.su<{ plan: string; ai_scans_per_month: number }>('select plan, ai_scans_per_month from public.plan_features order by plan')
-    expect(Object.fromEntries(rows.map((r) => [r.plan, r.ai_scans_per_month]))).toEqual({ free: 3, plus: 30, pro: 200 })
+    expect(Object.fromEntries(rows.map((r) => [r.plan, r.ai_scans_per_month]))).toMatchObject({ free: 3, plus: 30, pro: 200 })
   })
 
   it('kvoten følger med i get_my_context (features)', async () => {

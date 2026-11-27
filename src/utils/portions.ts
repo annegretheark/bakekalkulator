@@ -1,7 +1,7 @@
 import type { CostSettings, Ingredient, Menu, Recipe } from '../types'
 import { ALLERGEN_CODES, MENU_TYPES } from '../types'
 import { cleanAllergenMap } from '../lib/allergens'
-import { defaultCostSettings } from '../lib/defaults'
+import { defaultCostSettings, ingredientExtras } from '../lib/defaults'
 
 /** Ferdig vekt (g) når oppskriften skaleres til `count` stk/porsjoner. */
 export function scaledWeightG(recipe: Pick<Recipe, 'finishedWeightG' | 'yieldCount'>, count: number): number | null {
@@ -47,12 +47,13 @@ export function normalizeRecipe(r: Recipe): Recipe {
     labor: Array.isArray(r.labor) ? r.labor : [],
     packagingPerUnit: Number.isFinite(r.packagingPerUnit) && r.packagingPerUnit > 0 ? r.packagingPerUnit : 0,
     crossContact: Array.isArray(r.crossContact) ? r.crossContact.filter((c) => ALLERGEN_CODES.includes(c)) : [],
+    wastePercent: Number.isFinite(r.wastePercent) && r.wastePercent > 0 && r.wastePercent < 95 ? r.wastePercent : 0,
   }
 }
 
 /** Fyller inn allergenfelt for ingredienser lagret før fase 2 (ukjent status). */
 export function normalizeIngredient(i: Ingredient): Ingredient {
-  return { ...i, allergens: cleanAllergenMap(i.allergens), allergensChecked: i.allergensChecked !== false }
+  return { ...ingredientExtras(), ...i, allergens: cleanAllergenMap(i.allergens), allergensChecked: i.allergensChecked !== false }
 }
 
 export function normalizeCostSettings(c: Partial<CostSettings> | null | undefined): CostSettings {

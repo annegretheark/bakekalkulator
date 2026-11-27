@@ -1,8 +1,11 @@
-import type { AppData, AppSettings, BakeLog, BusinessType, CostSettings, EquipmentItem, Id, Ingredient, Menu, Recipe } from '../../types'
+import type { AppData, AppSettings, BakeLog, BusinessType, CostSettings, EquipmentItem, Id, Ingredient, Menu, PriceEntry, Recipe, StockMovement, Supplier, WasteLog } from '../../types'
 import { normalizeCostSettings, normalizeIngredient, normalizeMenu, normalizeRecipe } from '../../utils/portions'
 import { defaultSettings } from '../../lib/defaults'
 import { DATA_VERSION, seedData } from '../../lib/seed'
 import type { DataRepository } from './repository'
+import { stockLevelsFrom } from './mappers'
+import { withIngredientPrice } from '../../utils/inventory'
+import { uid } from '../../utils/format'
 
 const KEY = 'rettilomma.bakekalkulator.v1'
 
@@ -27,6 +30,12 @@ function migrate(raw: Partial<AppData>): AppData {
     equipment: Array.isArray(raw.equipment) ? raw.equipment : [],
     costs: normalizeCostSettings(raw.costs),
     menus: Array.isArray(raw.menus) ? raw.menus.map(normalizeMenu) : [],
+    suppliers: Array.isArray(raw.suppliers) ? raw.suppliers : [],
+    prices: Array.isArray(raw.prices) ? raw.prices : [],
+    stockMovements: Array.isArray(raw.stockMovements) ? raw.stockMovements : [],
+    // Beholdningen regnes alltid fra bevegelsene lokalt
+    stockLevels: stockLevelsFrom(Array.isArray(raw.stockMovements) ? raw.stockMovements : []),
+    waste: Array.isArray(raw.waste) ? raw.waste : [],
   }
 }
 
@@ -81,7 +90,7 @@ export class LocalStorageRepository implements DataRepository {
     this.storage?.removeItem(KEY)
   }
   saveSettings(settings: AppSettings) { return this.update((d) => ({ ...d, settings })) }
-  upsertIngredient(item: Ingredient) { return this.update((d) => ({ ...d, ingredients: upsert(d.ingredients, item) })) }
+  upsertIngredient(item: Ingredient) { return this.update((d) => ({ ...withIngredientPrice(d, item), ingredients: upsert(d.ingredients, item) })) }
   deleteIngredient(id: Id) { return this.update((d) => ({ ...d, ingredients: d.ingredients.filter((x) => x.id !== id) })) }
   upsertRecipe(item: Recipe) { return this.update((d) => ({ ...d, recipes: upsert(d.recipes, item) })) }
   deleteRecipe(id: Id) { return this.update((d) => ({ ...d, recipes: d.recipes.filter((x) => x.id !== id) })) }
@@ -94,4 +103,32 @@ export class LocalStorageRepository implements DataRepository {
   saveCostSettings(c: CostSettings) { return this.update((d) => ({ ...d, costs: c })) }
   upsertMenu(item: Menu) { return this.update((d) => ({ ...d, menus: upsert(d.menus, item) })) }
   deleteMenu(id: Id) { return this.update((d) => ({ ...d, menus: d.menus.filter((x) => x.id !== id) })) }
+  upsertSupplier(item: Supplier) { return this.update((d) => ({ ...d, suppliers: upsert(d.suppliers, item) })) }
+  deleteSupplier(id: Id) {
+    return this.update((d) => ({
+      ...d,
+      suppliers: d.suppliers.filter((x) => x.id !== id),
+      ingredients: d.ingredients.map((i) => (i.supplierId === id ? { ...i, supplierId: null } : i)),
+      prices: d.prices.map((p) => (p.supplierId === id ? { ...p, supplierId: null } : p)),
+    }))
+  }
+  addPriceOffer(item: PriceEntry) { return this.update((d) => ({ ...d, prices: [{ ...item, source: 'tilbud' as const }, ...d.prices] })) }
+  deletePriceOffer(id: Id) { return this.update((d) => ({ ...d, prices: d.prices.filter((p) => !(p.id === id && p.source === 'tilbud')) })) }
+  addStockMovements(items: StockMovement[]) { return this.update((d) => ({ ...d, stockMovements: [...items, ...d.stockMovements] })) }
+  stockCount(ingredientId: Id, counted: number, unitCost: number, note: string) {
+    return this.update((d) => {
+      const delta = counted - (stockLevelsFrom(d.stockMovements)[ingredientId] ?? 0)
+      if (Math.abs(delta) < 1e-9) return d
+      return { ...d, stockMovements: [{ id: uid(), ingredientId, quantity: delta, kind: 'telling' as const, movedAt: new Date().toISOString(), unitCost, note }, ...d.stockMovements] }
+    })
+  }
+  registerWaste(item: WasteLog, stockQuantity: number | null, unitCost: number) {
+    return this.update((d) => {
+      const moves: StockMovement[] = item.ingredientId && stockQuantity && stockQuantity > 0
+        ? [{ id: uid(), ingredientId: item.ingredientId, quantity: -stockQuantity, kind: 'svinn', movedAt: new Date().toISOString(), unitCost, note: `Svinn: ${item.reason}` }]
+        : []
+      return { ...d, waste: [item, ...d.waste], stockMovements: [...moves, ...d.stockMovements] }
+    })
+  }
+  deleteWaste(id: Id) { return this.update((d) => ({ ...d, waste: d.waste.filter((w) => w.id !== id) })) }
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ingredientExtras } from '../../lib/defaults'
 import type { EnergyInput, Ingredient, PriceSettings, Recipe } from '../../types'
 import { calculateEnergy, energyKwh, ovenLoadProfile } from '../energy'
 import { calculatePrice, findCheapestWindow, profileCost } from '../electricity'
@@ -151,7 +152,7 @@ describe('enhetskonvertering', () => {
   })
 })
 
-const mel: Ingredient = { id: 'mel', name: 'Hvetemel', category: 'Mel', packageSize: 2, unit: 'kg', price: 32, store: 'X', priceUpdated: '2026-01-01', allergens: {}, allergensChecked: true }
+const mel: Ingredient = { id: 'mel', name: 'Hvetemel', category: 'Mel', packageSize: 2, unit: 'kg', price: 32, store: 'X', priceUpdated: '2026-01-01', allergens: {}, allergensChecked: true, ...ingredientExtras() }
 
 describe('ingredienskostnader', () => {
   it('2 kg mel til 32 kr, 750 g brukt = 12 kr', () => {
@@ -164,7 +165,7 @@ describe('ingredienskostnader', () => {
 
 const recipe: Recipe = {
   id: 'r', name: 'Test', type: 'brod', category: 'brod_bakervarer', yieldCount: 3, yieldUnit: 'stk', prepMinutes: 0, finishedWeightG: null, steps: [], riseMinutes: 0, bakeMinutes: 0,
-  storePricePerItem: 40, notes: '', energy: energyInput(), createdAt: '', updatedAt: '', labor: [], packagingPerUnit: 0, crossContact: [],
+  storePricePerItem: 40, notes: '', energy: energyInput(), createdAt: '', updatedAt: '', labor: [], packagingPerUnit: 0, crossContact: [], wastePercent: 0,
   ingredients: [{ id: 'a', ingredientId: 'mel', amount: 1500, unit: 'g' }],
 }
 

@@ -74,12 +74,20 @@ export interface BaseCost {
   kwh: number
   labor: number
   laborHours: number
+  /**
+   * Svinn: råvaresvinn på ingrediensene pluss tilberedningssvinn i oppskriften
+   * (og i underoppskriftene). Ekstra kostnad i kroner.
+   */
+  waste: number
   /** Linjer som ikke kunne beregnes (ukjent ingrediens, enhet, sirkel ...). */
   warnings: string[]
   allergens: AllergenProfile
   /** Minst én ingrediens har allergener som ikke er kontrollert av kunden (f.eks. fra AI). */
   uncheckedAllergens: boolean
 }
+
+/** Svinnandel 0–0,95 fra prosent. */
+const wasteShare = (pct: number | undefined): number => (Number.isFinite(pct) && (pct as number) > 0 ? Math.min(pct as number, 95) / 100 : 0)
 
 function baseCost(recipe: Recipe, ctx: RecipeCostContext, path: Id[]): BaseCost {
   const ingById = new Map(ctx.ingredients.map((i) => [i.id, i]))
@@ -90,6 +98,7 @@ function baseCost(recipe: Recipe, ctx: RecipeCostContext, path: Id[]): BaseCost 
   let kwh = 0
   let labor = 0
   let laborHours = 0
+  let waste = 0
   let unchecked = false
   // Uten linjer vet vi ingenting om allergenene
   let allergens = emptyProfile(recipe.ingredients.length ? 'fri' : 'ukjent')
@@ -118,6 +127,7 @@ function baseCost(recipe: Recipe, ctx: RecipeCostContext, path: Id[]): BaseCost 
       kwh += subCost.kwh * fraction
       labor += subCost.labor * fraction
       laborHours += subCost.laborHours * fraction
+      waste += subCost.waste * fraction
       continue
     }
     const ing = ingById.get(line.ingredientId)
@@ -128,7 +138,12 @@ function baseCost(recipe: Recipe, ctx: RecipeCostContext, path: Id[]): BaseCost 
     }
     const c = ingredientCost(ing, line.amount, line.unit)
     if (c === null) warnings.push(`${ing.name}: kan ikke regne ${line.unit} om til ${ing.unit}`)
-    else ingredients += c
+    else {
+      ingredients += c
+      // Råvaresvinn: mer må kjøpes inn enn det som brukes
+      const w = wasteShare(ing.wastePercent)
+      waste += c * w / (1 - w)
+    }
     for (const a of ALLERGEN_CODES) allergens[a] = worstStatus(allergens[a], markToStatus(ing.allergens?.[a]))
     if (ing.allergensChecked === false) unchecked = true
   }
@@ -145,7 +160,11 @@ function baseCost(recipe: Recipe, ctx: RecipeCostContext, path: Id[]): BaseCost 
   labor += l.cost
   laborHours += l.hours
 
-  return { ingredients, energy: energyCost, kwh, labor, laborHours, warnings, allergens, uncheckedAllergens: unchecked }
+  // Tilberedningssvinn: en andel av det som lages, går tapt
+  const pw = wasteShare(recipe.wastePercent)
+  waste += (ingredients + energyCost + labor + waste) * pw / (1 - pw)
+
+  return { ingredients, energy: energyCost, kwh, labor, laborHours, waste, warnings, allergens, uncheckedAllergens: unchecked }
 }
 
 export function recipeBaseCost(recipe: Recipe, ctx: RecipeCostContext): BaseCost {
@@ -156,6 +175,7 @@ export interface UnitCost {
   ingredients: number
   energy: number
   labor: number
+  waste: number
   packaging: number
   overhead: number
   total: number
@@ -182,13 +202,14 @@ export function recipeCost(recipe: Recipe, ctx: RecipeCostContext): RecipeCostRe
     ingredients: base.ingredients / n,
     energy: base.energy / n,
     labor: base.labor / n,
+    waste: base.waste / n,
     packaging,
     overhead: ohPerUnit,
     total: 0,
   }
-  perUnit.total = perUnit.ingredients + perUnit.energy + perUnit.labor + perUnit.packaging + perUnit.overhead
+  perUnit.total = perUnit.ingredients + perUnit.energy + perUnit.labor + perUnit.waste + perUnit.packaging + perUnit.overhead
   const batch: UnitCost = {
-    ingredients: base.ingredients, energy: base.energy, labor: base.labor,
+    ingredients: base.ingredients, energy: base.energy, labor: base.labor, waste: base.waste,
     packaging: packaging * n, overhead: ohPerUnit * n, total: perUnit.total * n,
   }
   return { base, perUnit, batch, overheadMissing: oh.totalPerMonth > 0 && oh.perUnit === null }

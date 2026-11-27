@@ -1,5 +1,5 @@
 import { createContext } from 'react'
-import type { AppData, AppSettings, BakeLog, BakeType, BusinessType, CostSettings, EnergyInput, EquipmentItem, Id, Ingredient, Menu, Recipe } from '../types'
+import type { AppData, AppSettings, BakeLog, BakeType, BusinessType, CostSettings, EnergyInput, EquipmentItem, Id, Ingredient, Menu, PriceEntry, Recipe, StockMovement, Supplier, WasteLog } from '../types'
 
 export type PriceBasis = 'now' | 'average' | 'cheapest'
 
@@ -47,6 +47,14 @@ export interface DataContextValue {
   saveCostSettings: (c: CostSettings) => Promise<void>
   upsertMenu: (m: Menu) => Promise<void>
   deleteMenu: (id: Id) => Promise<void>
+  upsertSupplier: (s: Supplier) => Promise<void>
+  deleteSupplier: (id: Id) => Promise<void>
+  addPriceOffer: (p: PriceEntry) => Promise<void>
+  deletePriceOffer: (id: Id) => Promise<void>
+  addStockMovements: (m: StockMovement[]) => Promise<void>
+  stockCount: (ingredientId: Id, counted: number, unitCost: number, note: string) => Promise<void>
+  registerWaste: (w: WasteLog, stockQuantity: number | null, unitCost: number) => Promise<void>
+  deleteWaste: (id: Id) => Promise<void>
 }
 
 export const DataContext = createContext<DataContextValue | null>(null)

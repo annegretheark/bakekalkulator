@@ -15,15 +15,23 @@ export interface PlanFeatures {
    * (ingen serverkostnad), så den styres bare i grensesnittet og finnes ikke i plan_features.
    */
   scanning: boolean
+  /** AI-skanninger per måned (håndheves på serveren). */
+  aiScans: number
+  /** Lager, matsvinn og flere leverandører per vare (håndheves i databasen). */
+  inventory: boolean
+  /** Utvidet dashboard med trender. */
+  advancedDashboard: boolean
 }
 
 export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
-  free: { maxRecipes: 5, maxIngredients: 50, maxMembers: 1, salesCalculator: false, scanning: false },
-  plus: { maxRecipes: 50, maxIngredients: 500, maxMembers: 3, salesCalculator: true, scanning: false },
-  pro: { maxRecipes: null, maxIngredients: null, maxMembers: 25, salesCalculator: true, scanning: true },
+  free: { maxRecipes: 5, maxIngredients: 50, maxMembers: 1, salesCalculator: false, scanning: false, aiScans: 3, inventory: false, advancedDashboard: false },
+  plus: { maxRecipes: 50, maxIngredients: 500, maxMembers: 3, salesCalculator: true, scanning: false, aiScans: 30, inventory: false, advancedDashboard: false },
+  pro: { maxRecipes: null, maxIngredients: null, maxMembers: 25, salesCalculator: true, scanning: true, aiScans: 200, inventory: false, advancedDashboard: false },
+  business: { maxRecipes: null, maxIngredients: null, maxMembers: 50, salesCalculator: true, scanning: true, aiScans: 500, inventory: true, advancedDashboard: false },
+  business_plus: { maxRecipes: null, maxIngredients: null, maxMembers: 200, salesCalculator: true, scanning: true, aiScans: 1000, inventory: true, advancedDashboard: true },
 }
 
-export const PLAN_NAMES: Record<Plan, string> = { free: 'Free', plus: 'Plus', pro: 'Pro' }
+export const PLAN_NAMES: Record<Plan, string> = { free: 'Free', plus: 'Plus', pro: 'Pro', business: 'Business', business_plus: 'Business Plus' }
 
 export const TRIAL_DAYS = 30
 
@@ -56,6 +64,6 @@ export function trialDaysLeft(s: SubscriptionInfo | null | undefined, now = new 
   return ms > 0 ? Math.ceil(ms / 86_400_000) : 0
 }
 
-export function canUse(plan: Plan, feature: 'salesCalculator' | 'scanning'): boolean {
-  return PLAN_FEATURES[plan][feature]
+export function canUse(plan: Plan, feature: 'salesCalculator' | 'scanning' | 'inventory' | 'advancedDashboard'): boolean {
+  return !!PLAN_FEATURES[plan]?.[feature]
 }

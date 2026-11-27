@@ -57,6 +57,8 @@ export function ingredientFromAi(a: AiIngredient, base: Ingredient): Ingredient 
     name: a.manufacturer && !a.name.toLowerCase().includes(a.manufacturer.toLowerCase()) ? `${a.name} (${a.manufacturer})` : a.name || base.name,
     packageSize: a.packageSize ?? base.packageSize,
     unit: a.packageUnit ?? base.unit,
+    manufacturer: a.manufacturer || base.manufacturer,
+    comment: a.ingredientsText ? `Ingredienser: ${a.ingredientsText}`.slice(0, 2000) : base.comment,
     allergens: a.allergens,
     allergensChecked: false,
   }

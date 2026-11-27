@@ -8,6 +8,7 @@ import { unitDimension } from '../utils/units'
 import { IngredientScanPanel, ReceiptScanPanel } from '../components/ScanPanels'
 import { blankIngredient as blank, takeIngredient } from '../lib/scanHandoff'
 import { AllergenEditor, AllergenSummary } from '../components/Allergens'
+import { IngredientPrices } from '../components/IngredientPrices'
 
 
 /** Pris per basisenhet for sammenligning (kr/kg, kr/l, kr/stk). */
@@ -83,8 +84,21 @@ export function IngredientsPage() {
             <NumberField label="Innkjøpspris" value={editing.price} onChange={(v) => setEditing({ ...editing, price: v })} suffix="kr" />
             <TextField label="Butikk" value={editing.store} onChange={(v) => setEditing({ ...editing, store: v })} />
             <TextField label="Pris sist oppdatert" type="date" value={editing.priceUpdated} onChange={(v) => setEditing({ ...editing, priceUpdated: v })} />
+            <SelectField label="Leverandør" value={editing.supplierId ?? ''} onChange={(v) => {
+              const sup = data.suppliers.find((x) => x.id === v)
+              setEditing({ ...editing, supplierId: v || null, store: sup ? sup.name : editing.store })
+            }} options={[{ value: '', label: data.suppliers.length ? '— Ingen —' : '— Legg inn under Leverandører —' }, ...data.suppliers.map((x) => ({ value: x.id, label: x.name }))]} />
+            <TextField label="Leverandørens varenummer" value={editing.supplierItemNo} onChange={(v) => setEditing({ ...editing, supplierItemNo: v })} />
+            <TextField label="Produsent" value={editing.manufacturer} onChange={(v) => setEditing({ ...editing, manufacturer: v })} />
+            <TextField label="Strekkode (EAN/GTIN)" value={editing.ean} onChange={(v) => setEditing({ ...editing, ean: v.replace(/\D/g, '').slice(0, 14) })} placeholder="8–14 siffer" />
+            <NumberField label="Mva" value={editing.vatPercent} max={100} onChange={(v) => setEditing({ ...editing, vatPercent: v })} suffix="%" hint="15 % for næringsmidler" />
+            <NumberField label="Råvaresvinn" value={editing.wastePercent} max={94} onChange={(v) => setEditing({ ...editing, wastePercent: v })} suffix="%" hint="Skrell, ben, avskjær. Øker kostnaden i oppskriftene." />
+            <NumberField label="Minimumsbeholdning" value={editing.minStock ?? 0} max={100000000} onChange={(v) => setEditing({ ...editing, minStock: v > 0 ? v : null })} suffix={editing.unit} hint="Varsel på lagersiden. 0 = ingen" />
+            <TextField label="Kommentar" value={editing.comment} onChange={(v) => setEditing({ ...editing, comment: v })} />
           </div>
           <AllergenEditor value={editing.allergens} onChange={(v) => setEditing({ ...editing, allergens: v })} />
+          {editing.ean && !/^\d{8,14}$/.test(editing.ean) && <Notice tone="warn">Strekkoden må ha 8–14 siffer. Den lagres ikke ellers.</Notice>}
+          <IngredientPrices ingredient={editing} onUse={(patch) => setEditing({ ...editing, ...patch })} />
           {!editing.allergensChecked && (
             <Notice tone="warn">
               Allergenene er foreslått automatisk og ikke kontrollert. Sjekk dem mot varedeklarasjonen.{' '}
@@ -107,7 +121,7 @@ export function IngredientsPage() {
           <div className="search"><Search size={16} aria-hidden /><input aria-label="Søk" placeholder="Søk i ingredienser …" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
           <div className="table-wrap">
             <table className="clean responsive">
-              <thead><tr><th>Navn</th><th>Kategori</th><th className="num">Pakning</th><th className="num">Pris</th><th className="num">Enhetspris</th><th>Allergener</th><th>Butikk</th><th>Oppdatert</th><th /></tr></thead>
+              <thead><tr><th>Navn</th><th>Kategori</th><th className="num">Pakning</th><th className="num">Pris</th><th className="num">Enhetspris</th><th>Allergener</th><th>Leverandør</th><th>Oppdatert</th><th /></tr></thead>
               <tbody>
                 {list.map((i) => (
                   <tr key={i.id}>
@@ -117,7 +131,7 @@ export function IngredientsPage() {
                     <td data-label="Pris" className="num">{formatMoney(i.price, f)}</td>
                     <td data-label="Enhetspris" className="num muted">{unitPrice(i)}</td>
                     <td data-label="Allergener"><AllergenSummary map={i.allergens} />{!i.allergensChecked && <span className="tag allergen-ukjent">Ikke kontrollert</span>}</td>
-                    <td data-label="Butikk">{i.store}</td>
+                    <td data-label="Butikk">{data.suppliers.find((x) => x.id === i.supplierId)?.name ?? i.store}{i.wastePercent > 0 && <small className="muted block">Svinn {i.wastePercent} %</small>}</td>
                     <td data-label="Oppdatert">{i.priceUpdated ? formatDate(i.priceUpdated, f.locale) : '–'}</td>
                     <td className="row-actions">
                       <button className="icon-btn" aria-label={`Rediger ${i.name}`} onClick={() => setEditing(i)}><Pencil size={16} /></button>

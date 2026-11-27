@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { ingredientExtras } from '../../lib/defaults'
 import { matchIngredient, packageUnitFor, parseAmount, parseIngredientLine, parsePackageSize, parseReceiptText, parseRecipeText, parseYield } from '../scanParse'
 import { lookupProduct, parseQuantity } from '../../services/scan'
 import type { Ingredient } from '../../types'
 
-const ing = (id: string, name: string, unit: Ingredient['unit'] = 'kg'): Ingredient => ({ id, name, category: '', packageSize: 1, unit, price: 10, store: '', priceUpdated: '2026-11-27', allergens: {}, allergensChecked: true })
+const ing = (id: string, name: string, unit: Ingredient['unit'] = 'kg'): Ingredient => ({ id, name, category: '', packageSize: 1, unit, price: 10, store: '', priceUpdated: '2026-11-27', allergens: {}, allergensChecked: true, ...ingredientExtras() })
 
 describe('parseAmount', () => {
   it.each([

@@ -13,13 +13,15 @@ import type { PriceBasis } from '../context/dataContext'
 import { withCustomerType } from '../utils/priceSettings'
 import { useAuth } from '../hooks/useAuth'
 import { useBusiness } from '../hooks/useBusiness'
+import { useFeature } from '../hooks/useFeature'
+import { consumption, consumptionMovements } from '../utils/inventory'
 import { EquipmentUsesEditor } from '../components/EquipmentUsesEditor'
 import { yieldWord } from '../lib/businessTypes'
 
 export function CalculatorPage() {
   const t = useT()
   const f = useFormat()
-  const { data, draft, setDraft, addLog, upsertRecipe, saveSettings } = useData()
+  const { data, draft, setDraft, addLog, upsertRecipe, saveSettings, addStockMovements } = useData()
   const auth = useAuth()
   const { activeOrg } = auth
   // Salgsberegning: Plus/Pro (prøveperioden gir Pro). Uten Supabase (lokal modus) er alt åpent.
@@ -29,6 +31,9 @@ export function CalculatorPage() {
   const priceReadOnly = activeOrg?.role === 'member'
   const { result, pricePerKwh, priceSource, fallback, recipe, window } = useBakeResult()
   const [saved, setSaved] = useState(false)
+  const inventory = useFeature('inventory')
+  const [deductStock, setDeductStock] = useState(true)
+  const [stockNote, setStockNote] = useState<string | null>(null)
   const { profile } = useBusiness()
   const unit = recipe?.yieldUnit ?? profile.defaultYieldUnit
   const unitWord = yieldWord(unit, draft.count)
@@ -65,6 +70,15 @@ export function CalculatorPage() {
         ingredients: result.ingredientLines.map((l) => ({ name: l.name, amount: l.amount, unit: l.unit, cost: l.cost })),
       },
     })
+    // Trekk ingrediensene fra lageret (Business). Underoppskrifter regnes ned til ingrediensene.
+    if (inventory.allowed && deductStock && recipe && !profile.hiddenRoutes.includes('lager')) {
+      const { usage, skipped } = consumption(recipe, draft.count, data.recipes, data.ingredients)
+      const moves = consumptionMovements(usage, data.ingredients, `Produksjon: ${draft.name || recipe.name} (${draft.count})`)
+      await addStockMovements(moves)
+      setStockNote(moves.length
+        ? `${moves.length} ingrediens(er) er trukket fra lageret.${skipped.length ? ` Ikke trukket (enheten kan ikke regnes om): ${[...new Set(skipped)].join(', ')}.` : ''}`
+        : null)
+    }
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }
@@ -78,6 +92,7 @@ export function CalculatorPage() {
       />
 
       <ResultCards result={result} pricePerKwh={pricePerKwh} priceSource={priceSource} count={draft.count} unit={unitWord} perUnit={yieldWord(unit, 1)} showSavings={profile.showStorePrice} />
+      {stockNote && <Notice>{stockNote}</Notice>}
       {fallback && <Notice tone="warn">Strømpris er ikke tilgjengelig nå. Beregningen bruker reserveprisen {formatOre(pricePerKwh, f.locale)} fra Innstillinger.</Notice>}
 
       <div className="grid-2">
@@ -97,6 +112,9 @@ export function CalculatorPage() {
                 <NumberField label="Butikkpris for tilsvarende vare" value={draft.storePricePerItem} onChange={(v) => setDraft((d) => ({ ...d, storePricePerItem: v }))} suffix={`kr/${yieldWord(unit, 1)}`} />
               )}
             </div>
+            {inventory.allowed && recipe && !profile.hiddenRoutes.includes('lager') && (
+              <Toggle label="Trekk ingrediensene fra lageret når jeg lagrer" checked={deductStock} onChange={setDeductStock} />
+            )}
             {data.recipes.length === 0 && <Notice>Du har ingen oppskrifter ennå. <button className="link" onClick={() => navigate('oppskrifter')}>Opprett en oppskrift</button> for å få med ingredienskostnader.</Notice>}
           </Card>
 

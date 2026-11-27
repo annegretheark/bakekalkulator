@@ -28,6 +28,7 @@ export interface RecipeBreakdown {
   full: ReturnType<typeof recipeCost>
   count: number
   labor: number
+  waste: number
   packaging: number
   overhead: number
   total: number
@@ -51,9 +52,10 @@ export function useRecipeBreakdown() {
     })
     const full = recipeCost(r, c)
     const labor = full.perUnit.labor * count
+    const waste = full.perUnit.waste * count
     const packaging = full.perUnit.packaging * count
     const overhead = full.perUnit.overhead * count
-    const total = bake.totalCost + labor + packaging + overhead
-    return { bake, full, count, labor, packaging, overhead, total, perUnit: count > 0 ? total / count : null }
+    const total = bake.totalCost + labor + waste + packaging + overhead
+    return { bake, full, count, labor, waste, packaging, overhead, total, perUnit: count > 0 ? total / count : null }
   }, [ctx, data.recipes, data.ingredients, data.settings.bakesPerMonth])
 }

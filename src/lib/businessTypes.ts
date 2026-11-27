@@ -80,7 +80,7 @@ const FOOD: BusinessProfile = {
 }
 
 export const BUSINESS_PROFILES: Record<BusinessType, BusinessProfile> = {
-  privat: { ...BAKERY, greeting: 'God dag!', overviewText: 'Her er status for matlagingen og strømprisen akkurat nå.', hiddenRoutes: ['kostnader', 'menyer'] },
+  privat: { ...BAKERY, greeting: 'God dag!', overviewText: 'Her er status for matlagingen og strømprisen akkurat nå.', hiddenRoutes: ['kostnader', 'menyer', 'leverandorer', 'lager', 'svinn', 'dashboard'] },
   bakeri: BAKERY,
   restaurant: FOOD,
   kafe: { ...FOOD, defaultCategory: 'lunsj' },

@@ -267,6 +267,76 @@ export interface Ingredient {
   allergens: AllergenMap
   /** false når allergenene kommer fra AI eller skanning og ikke er kontrollert av kunden. */
   allergensChecked: boolean
+  /** Strekkode (EAN/GTIN), tom hvis ukjent. */
+  ean: string
+  manufacturer: string
+  /** Fast leverandør (prisen over gjelder denne). */
+  supplierId: Id | null
+  supplierItemNo: string
+  /** Mva-sats på varen (15 % for næringsmidler). Innkjøpsprisen regnes som oppgitt. */
+  vatPercent: number
+  /** Råvaresvinn i prosent (skrell, ben, avskjær). Øker kostnaden i oppskriftene. */
+  wastePercent: number
+  comment: string
+  /** Varsle når beholdningen er under dette (i ingrediensens enhet). */
+  minStock: number | null
+}
+
+// ---------- Leverandører og priser ----------
+export interface Supplier {
+  id: Id
+  name: string
+  contactPerson: string
+  phone: string
+  email: string
+  customerNumber: string
+  comment: string
+}
+
+/** Pris i historikken (automatisk ved prisendring) eller tilbud fra en annen leverandør. */
+export interface PriceEntry {
+  id: Id
+  ingredientId: Id
+  supplierId: Id | null
+  supplierItemNo: string
+  packageSize: number
+  unit: Unit
+  price: number
+  vatPercent: number | null
+  pricedAt: string // YYYY-MM-DD
+  source: 'historikk' | 'tilbud'
+}
+
+// ---------- Lager og matsvinn ----------
+export type StockKind = 'innkjop' | 'forbruk' | 'svinn' | 'telling' | 'justering'
+
+export interface StockMovement {
+  id: Id
+  ingredientId: Id
+  /** I ingrediensens enhet. Positiv = inn, negativ = ut. */
+  quantity: number
+  kind: StockKind
+  movedAt: string
+  /** Pris per enhet på tidspunktet. */
+  unitCost: number
+  note: string
+}
+
+export type WasteReason = 'utgatt' | 'odelagt' | 'overproduksjon' | 'tilberedning' | 'tallerken' | 'annet'
+export const WASTE_REASONS: WasteReason[] = ['utgatt', 'odelagt', 'overproduksjon', 'tilberedning', 'tallerken', 'annet']
+
+export interface WasteLog {
+  id: Id
+  loggedAt: string // YYYY-MM-DD
+  ingredientId: Id | null
+  recipeId: Id | null
+  name: string
+  amount: number
+  unit: Unit
+  /** Kostnad på tidspunktet – endres ikke når prisene endres. */
+  cost: number
+  reason: WasteReason
+  note: string
 }
 
 export interface RecipeIngredient {
@@ -305,6 +375,8 @@ export interface Recipe {
   packagingPerUnit: number
   /** Allergener med risiko for krysskontakt i produksjonen (felles utstyr, lokaler). */
   crossContact: AllergenCode[]
+  /** Tilberedningssvinn i prosent (det som går tapt eller kastes i produksjonen). */
+  wastePercent: number
   steps: string[]
   riseMinutes: number
   bakeMinutes: number
@@ -437,7 +509,8 @@ export interface SalesResult {
 }
 
 // ---------- Innstillinger ----------
-export type Plan = 'free' | 'plus' | 'pro'
+export type Plan = 'free' | 'plus' | 'pro' | 'business' | 'business_plus'
+export const PLANS: Plan[] = ['free', 'plus', 'pro', 'business', 'business_plus']
 
 export interface AppSettings {
   locale: string // 'nb-NO'
@@ -458,4 +531,13 @@ export interface AppData {
   equipment: EquipmentItem[]
   costs: CostSettings
   menus: Menu[]
+  suppliers: Supplier[]
+  /** Prishistorikk og tilbud (siste 12 måneder i skyen). */
+  prices: PriceEntry[]
+  /** Beholdning per ingrediens (i ingrediensens enhet). */
+  stockLevels: Record<Id, number>
+  /** Siste lagerbevegelser. */
+  stockMovements: StockMovement[]
+  /** Registrert matsvinn (siste 12 måneder i skyen). */
+  waste: WasteLog[]
 }

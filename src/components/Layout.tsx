@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { BookOpen, Calculator, ChartColumn, ClipboardList, History, ScanLine, LayoutDashboard, LogIn, Menu, Settings, WifiOff, Shield, ShoppingBasket, UserRound, Users, Wheat, Wrench, X, Zap } from 'lucide-react'
+import { BookOpen, Calculator, ChartColumn, ClipboardList, Gauge, History, Recycle, ScanLine, Truck, Warehouse, LayoutDashboard, LogIn, Menu, Settings, WifiOff, Shield, ShoppingBasket, UserRound, Users, Wheat, Wrench, X, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { navigate, type RouteKey } from '../hooks/useRoute'
 import { useData, useFormat, useT } from '../hooks/useData'
@@ -14,10 +14,14 @@ import { businessProfile } from '../lib/businessTypes'
 
 const NAV: { key: RouteKey; label: TranslationKey; icon: LucideIcon }[] = [
   { key: 'oversikt', label: 'nav.overview', icon: LayoutDashboard },
+  { key: 'dashboard', label: 'nav.dashboard', icon: Gauge },
   { key: 'kalkulator', label: 'nav.calculator', icon: Calculator },
   { key: 'strompriser', label: 'nav.prices', icon: Zap },
   { key: 'oppskrifter', label: 'nav.recipes', icon: BookOpen },
   { key: 'ingredienser', label: 'nav.ingredients', icon: ShoppingBasket },
+  { key: 'leverandorer', label: 'nav.suppliers', icon: Truck },
+  { key: 'lager', label: 'nav.stock', icon: Warehouse },
+  { key: 'svinn', label: 'nav.waste', icon: Recycle },
   { key: 'utstyr', label: 'nav.equipment', icon: Wrench },
   { key: 'kostnader', label: 'nav.costs', icon: Users },
   { key: 'menyer', label: 'nav.menus', icon: ClipboardList },

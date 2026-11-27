@@ -21,8 +21,8 @@ Videreutvikling av Bakekalkulatoren til en matkalkulator for privatpersoner, bak
 |---|---|---|
 | 1 | Virksomhetstyper, utstyrsregister, matoppskrifter og porsjonsberegning | Godkjent. Branch `fase-1-matkalkulator` er pushet, ikke publisert |
 | 2 | Personalkostnader, driftskostnader (fordeling av kjøl/frys/ventilasjon), allergener, menykalkulasjon. I tillegg underoppskrifter og arbeidstid fra punkt 4 | Godkjent. Branch `fase-2-matkalkulator` er pushet, ikke publisert |
-| 3 | PWA (finnes delvis), egen Skann-side, strekkode med Open Food Facts-data, OCR og AI-skanning (Claude Haiku 5.5 i Supabase Edge Function med kvoter) | **Ferdig på branch `fase-3-matkalkulator`, venter på godkjenning** |
-| 4 | Leverandører og prishistorikk, lagerstyring, matsvinn (inkl. svinn i oppskrifter), Business-abonnementer, dashboard | Ikke startet |
+| 3 | PWA (finnes delvis), egen Skann-side, strekkode med Open Food Facts-data, OCR og AI-skanning (Claude Haiku 5.5 i Supabase Edge Function med kvoter) | Godkjent. Branch `fase-3-matkalkulator` er pushet, ikke publisert |
+| 4 | Leverandører og prishistorikk, lagerstyring, matsvinn (inkl. svinn i oppskrifter), Business-abonnementer, dashboard | **Ferdig på branch `fase-4-matkalkulator`, venter på godkjenning** |
 
 ## 3. Fase 1 – levert
 
@@ -115,6 +115,45 @@ Videreutvikling av Bakekalkulatoren til en matkalkulator for privatpersoner, bak
 | Bilder i oppskrifter | Krever Supabase Storage med tilgangsstyring. Foreslås flyttet til fase 4 |
 | Live videostrøm for strekkode | Bilde av strekkoden virker på alle telefoner og PC-er. Live kamera kan legges til senere |
 
+## 3d. Fase 4 – levert
+
+### Business-abonnementer
+| Plan | Brukere | Oppskrifter/ingredienser | AI-skanninger per måned | Lager, matsvinn, flere leverandører | Utvidet dashboard |
+|---|---|---|---|---|---|
+| Business | 50 | Ubegrenset | 500 | Ja | – |
+| Business Plus | 200 | Ubegrenset | 1 000 | Ja | Ja |
+
+Free, Plus og Pro er uendret, og ingen eksisterende abonnementer endres. Prøveperioden gir fortsatt Pro. Systemadministrator setter Business under Administrasjon. Funksjonene håndheves i databasen (`org_has_feature`, RLS og funksjoner). Appen viser ingen priser, og Stripe er ikke koblet til.
+
+### Ingredienser og leverandører (punkt 5)
+- Nytt leverandørregister.
+- Ingrediensen har nå strekkode, produsent, leverandør, leverandørens varenummer, mva, råvaresvinn, kommentar og minimumsbeholdning. Strekkodeskanning fyller inn strekkode, produsent og ingrediensliste.
+- Prishistorikken skrives automatisk i databasen når pris, pakning, enhet eller leverandør endres. Eksisterende priser blir første punkt.
+- Prissammenligning: gjeldende pris og siste pris fra andre leverandører, per kg, liter eller stk, billigst først. «Bruk denne prisen» bytter leverandør. Tilbud fra andre leverandører kan legges inn med Business.
+- Nye priser brukes i fremtidige kalkulasjoner. Lagrede produksjoner og registrert svinn beholder kostnaden fra dagen de ble registrert.
+
+### Matsvinn
+- **Råvaresvinn** på ingrediensen og **tilberedningssvinn** på oppskriften tas med i kostnaden for alle planer. Det gjelder også underoppskrifter, og vises som egen linje i oppskrifter og menyer (kolonnen «Svinn»).
+- **Registrering av svinn** (Business): ingrediens eller ferdig rett, mengde, årsak (gått ut på dato, ødelagt, overproduksjon, tilberedning, tallerkensvinn, annet), dato og notat. Kostnaden lagres på dagen. Svinn kan trekkes fra lageret i samme transaksjon.
+
+### Lager (Business)
+- Beholdning per ingrediens fra bevegelser (innkjøp, forbruk, svinn, telling, justering), med lagerverdi etter dagens priser og varsel under minimumsbeholdning.
+- Varetelling setter beholdningen. Differansen lagres med lås mot samtidige tellinger.
+- Når en produksjon lagres i kalkulatoren, kan ingrediensene trekkes fra lageret automatisk, også gjennom underoppskrifter og med råvaresvinn. Linjer der enheten ikke kan regnes om, vises.
+
+### Dashboard
+- Alle: snittmargin og råvareandel i menyene, produksjon denne måneden, prisendringer siste 90 dager og retter under 20 % margin.
+- Business: lagerverdi, varer under minimum og svinn per årsak.
+- Business Plus: trender over seks måneder for produksjonskostnad, svinn og innkjøp, og det som ble kastet mest.
+
+### Ikke med i fase 4
+| Hva | Hvorfor |
+|---|---|
+| Betaling (Stripe) og priser i appen | Ikke bestilt. Planene settes manuelt av systemadministrator |
+| Kvitteringsskanning rett inn på lager | Kvitteringslinjene fra telefonen har ikke alltid antall. Innkjøp registreres på lagersiden |
+| Bilder i oppskrifter og lagring av kvitteringer | Krever Supabase Storage. Foreslås som egen leveranse |
+| Bestillingsforslag til leverandør | Ikke i spesifikasjonen. Varer under minimum vises og kan bestilles manuelt |
+
 ## 4. Database – migrasjon 5
 
 Fil: `supabase/migrations/20261127120000_matkalkulator_fase1.sql`. **Ikke kjørt mot produksjon.**
@@ -154,6 +193,17 @@ Fil: `supabase/migrations/20261129120000_matkalkulator_fase3.sql`. **Ikke kjørt
 
 I tillegg: hemmeligheter og publisering av Edge Function (se README, «AI-skanning»).
 
+## 4d. Database – migrasjon 8 og 9 (fase 4)
+
+Filer: `20261130120000_business_planer.sql` og `20261130120100_matkalkulator_fase4.sql`. **Ikke kjørt mot produksjon.** Krever migrasjon 5–7.
+
+- Nye planverdier og rader i `plan_features` med `inventory` og `advanced_dashboard`.
+- `suppliers` (medlemmer), nye kolonner på `ingredients` og `recipes`.
+- `ingredient_prices`: historikk skrives bare av triggeren `record_ingredient_price` og kan ikke endres eller slettes av klienter. Tilbud krever Business.
+- `stock_movements` og visningen `stock_levels` (security invoker): innsetting krever Business, og bare eier/administrator kan slette. `stock_count` håndterer varetelling.
+- `waste_logs`: bare via `register_waste` (Business), og bare eier/administrator kan slette.
+- `save_ingredient`, `save_recipe` og `export_my_data` er utvidet. Eldre klienter beholder lagrede verdier.
+
 ## 5. Testing i fase 1
 
 - `npm test`: 313 tester (49 nye) – energi med registerutstyr, dobbeltberegning, målt forbruk, kontinuerlig drift, porsjoner/kilopris, mappers og databasetester for virksomhetstype, utstyr (RLS mellom kunder, roller, ugyldige verdier, eksport) og oppskrifter.
@@ -171,6 +221,12 @@ I tillegg: hemmeligheter og publisering av Edge Function (se README, «AI-skanni
 - `npm test`: 395 tester (34 nye). Databasetester for standardoppsett, tilgang (bare admin, bare service_role), medlemskap, kvote, pågående reservasjoner, hastighetsgrense, kostnadstak, kostnadsberegning og eksport. Enhetstester for validering av AI-svar, forespørsler, skjemaer, omforming til skjemaene, Open Food Facts med allergener og feil, og bildekomprimering. Røyktest for Skann-siden.
 - Edge Function er typesjekket mot Anthropic SDK 1.8.0 og supabase-js. Den er ikke kjørt mot Anthropic, fordi det krever API-nøkkel og koster penger.
 - `npm run lint` og `npm run build` er grønne.
+
+## 5d. Testing i fase 4
+
+- `npm test`: 439 tester (44 nye). Databasetester for Business-planer og funksjonsflagg, leverandører, innkjøpsfelt, automatisk prishistorikk (og at den ikke kan endres), tilbud, lager og varetelling, matsvinn med lageruttak i samme transaksjon, tilgang mellom kunder og roller, tilberedningssvinn og eksport. Enhetstester for svinn i kostnaden (også underoppskrifter og menyer), prissammenligning, prisendring, lagerberegning, forbruk fra produksjon og trender. Røyktest for alle nye sider.
+- Visuell kontroll i Edge på PC og mobil: dashboard, leverandører, lager, matsvinn og ingrediens med priser. Ingen feil i konsollen.
+- `npm run test:pg`: 11 grønne (`authFlow` krever lokal Supabase, som før). `npm run lint` og `npm run build` er grønne.
 
 ## 6. Åpne spørsmål
 

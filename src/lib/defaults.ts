@@ -1,4 +1,4 @@
-import type { AppSettings, EnergyInput, PriceArea, PriceSettings, CostSettings, StaffRole } from '../types'
+import type { AppSettings, EnergyInput, PriceArea, PriceSettings, CostSettings, StaffRole, Ingredient } from '../types'
 
 export const AREA_NAMES: Record<PriceArea, string> = {
   NO1: 'Østlandet',
@@ -106,6 +106,11 @@ export function defaultStaffRole(id: string, name = 'Kokk'): StaffRole {
     id, name, mode: 'detaljert', hourlyWage: 250, employerTaxPercent: 14.1, holidayPayPercent: 12,
     pensionPercent: 2, otherPercent: 0, fixedHourlyCost: 0,
   }
+}
+
+/** Standardverdier for innkjøpsfeltene på en ingrediens (fase 4). */
+export function ingredientExtras(): Pick<Ingredient, 'ean' | 'manufacturer' | 'supplierId' | 'supplierItemNo' | 'vatPercent' | 'wastePercent' | 'comment' | 'minStock'> {
+  return { ean: '', manufacturer: '', supplierId: null, supplierItemNo: '', vatPercent: 15, wastePercent: 0, comment: '', minStock: null }
 }
 
 export function defaultCostSettings(): CostSettings {

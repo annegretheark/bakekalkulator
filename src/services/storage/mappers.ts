@@ -1,7 +1,7 @@
 // Oversetting mellom databaserader (snake_case) og appens modeller (camelCase).
 // Rene funksjoner – testes isolert.
-import type { AppData, AppSettings, BakeLog, BusinessType, CostSettings, EnergyInput, EquipmentItem, Ingredient, LaborLine, Menu, MenuItem, PriceSettings, Recipe, RecipeIngredient, Tariff } from '../../types'
-import { ALLERGEN_CODES, EQUIPMENT_TYPES, MENU_TYPES, RECIPE_CATEGORIES } from '../../types'
+import type { AppData, AppSettings, BakeLog, BusinessType, CostSettings, EnergyInput, EquipmentItem, Id, Ingredient, LaborLine, Menu, MenuItem, PriceEntry, PriceSettings, Recipe, RecipeIngredient, StockMovement, Supplier, Tariff, WasteLog } from '../../types'
+import { ALLERGEN_CODES, EQUIPMENT_TYPES, MENU_TYPES, RECIPE_CATEGORIES, WASTE_REASONS } from '../../types'
 import { categoryForBakeType, normalizeCostSettings } from '../../utils/portions'
 import { cleanAllergenMap } from '../../lib/allergens'
 import { isBusinessType } from '../../lib/businessTypes'
@@ -27,6 +27,14 @@ export interface IngredientRow {
   price_updated: string
   allergens?: unknown
   allergens_checked?: boolean | null
+  ean?: string | null
+  manufacturer?: string | null
+  supplier_id?: string | null
+  supplier_item_no?: string | null
+  vat_percent?: number | string | null
+  waste_percent?: number | string | null
+  comment?: string | null
+  min_stock?: number | string | null
 }
 
 export interface RecipeIngredientRow {
@@ -57,6 +65,7 @@ export interface RecipeRow {
   labor?: unknown
   packaging_per_unit?: number | string | null
   cross_contact?: string[] | null
+  waste_percent?: number | string | null
   created_at: string
   updated_at: string
   recipe_ingredients?: RecipeIngredientRow[]
@@ -140,6 +149,14 @@ export const ingredientFromRow = (r: IngredientRow): Ingredient => ({
   priceUpdated: r.price_updated,
   allergens: cleanAllergenMap(r.allergens),
   allergensChecked: r.allergens_checked !== false,
+  ean: r.ean ?? '',
+  manufacturer: r.manufacturer ?? '',
+  supplierId: r.supplier_id ?? null,
+  supplierItemNo: r.supplier_item_no ?? '',
+  vatPercent: num(r.vat_percent, 15),
+  wastePercent: num(r.waste_percent, 0),
+  comment: r.comment ?? '',
+  minStock: r.min_stock === null || r.min_stock === undefined || r.min_stock === '' ? null : num(r.min_stock),
 })
 
 /** Argument til RPC-en save_ingredient (organisasjonen sendes separat). */
@@ -154,6 +171,14 @@ export const ingredientToRpc = (i: Ingredient) => ({
   price_updated: i.priceUpdated || new Date().toISOString().slice(0, 10),
   allergens: cleanAllergenMap(i.allergens),
   allergens_checked: i.allergensChecked !== false,
+  ean: /^\d{8,14}$/.test(i.ean ?? '') ? i.ean : '',
+  manufacturer: (i.manufacturer ?? '').trim().slice(0, 200),
+  supplier_id: i.supplierId || '',
+  supplier_item_no: (i.supplierItemNo ?? '').trim().slice(0, 100),
+  vat_percent: Math.min(100, Math.max(0, Number.isFinite(i.vatPercent) ? i.vatPercent : 15)),
+  waste_percent: Math.min(94.99, Math.max(0, Number.isFinite(i.wastePercent) ? i.wastePercent : 0)),
+  comment: (i.comment ?? '').slice(0, 2000),
+  min_stock: i.minStock === null || i.minStock === undefined || !Number.isFinite(i.minStock) ? '' : Math.max(0, i.minStock),
 })
 
 export const energyFromJson = (e: Partial<EnergyInput> | null | undefined): EnergyInput => ({
@@ -194,6 +219,7 @@ export const recipeFromRow = (r: RecipeRow): Recipe => ({
   labor: laborFromJson(r.labor),
   packagingPerUnit: num(r.packaging_per_unit, 0),
   crossContact: (r.cross_contact ?? []).filter((c): c is Recipe['crossContact'][number] => (ALLERGEN_CODES as string[]).includes(c)),
+  wastePercent: num(r.waste_percent, 0),
   steps: r.steps ?? [],
   riseMinutes: r.rise_minutes,
   bakeMinutes: r.bake_minutes,
@@ -224,6 +250,7 @@ export const recipeToRpc = (r: Recipe) => ({
     labor: (r.labor ?? []).slice(0, 50).map((l) => ({ id: l.id, roleId: l.roleId, people: clamp(l.people, 0, 1000), minutes: clamp(l.minutes, 0, 100000) })),
     packaging_per_unit: clamp(r.packagingPerUnit || 0, 0, 100000),
     cross_contact: r.crossContact ?? [],
+    waste_percent: clamp(r.wastePercent || 0, 0, 94.99),
   },
   lines: r.ingredients.map((l) => l.subRecipeId
     ? { id: l.id, ingredient_id: null, sub_recipe_id: l.subRecipeId, amount: l.amount, unit: l.unit }
@@ -293,6 +320,68 @@ export const menuToRpc = (m: Menu) => ({
   menu_type: m.type,
   description: m.description,
   items: m.items.slice(0, 300).map((i) => ({ id: i.id, recipeId: i.recipeId, name: i.name.trim(), price: clamp(i.price, 0, 1000000), vatPercent: clamp(i.vatPercent, 0, 100) })),
+})
+
+// ---------- Leverandører, priser, lager og svinn ----------
+export interface SupplierRow {
+  id: string; organization_id: string; name: string; contact_person: string | null; phone: string | null
+  email: string | null; customer_number: string | null; comment: string | null
+}
+export const supplierFromRow = (r: SupplierRow): Supplier => ({
+  id: r.id, name: r.name, contactPerson: r.contact_person ?? '', phone: r.phone ?? '', email: r.email ?? '',
+  customerNumber: r.customer_number ?? '', comment: r.comment ?? '',
+})
+export const supplierToRow = (s: Supplier, organizationId: string) => ({
+  id: s.id, organization_id: organizationId, name: s.name.trim().slice(0, 200), contact_person: s.contactPerson.trim().slice(0, 200),
+  phone: s.phone.trim().slice(0, 50), email: s.email.trim().slice(0, 200), customer_number: s.customerNumber.trim().slice(0, 100), comment: s.comment.slice(0, 2000),
+})
+
+export interface PriceRow {
+  id: string; ingredient_id: string; supplier_id: string | null; supplier_item_no: string | null; package_size: number | string
+  unit: Ingredient['unit']; price: number | string; vat_percent: number | string | null; priced_at: string; source: string
+}
+export const priceFromRow = (r: PriceRow): PriceEntry => ({
+  id: r.id, ingredientId: r.ingredient_id, supplierId: r.supplier_id, supplierItemNo: r.supplier_item_no ?? '',
+  packageSize: num(r.package_size, 1), unit: r.unit, price: num(r.price), vatPercent: r.vat_percent === null ? null : num(r.vat_percent),
+  pricedAt: r.priced_at, source: r.source === 'tilbud' ? 'tilbud' : 'historikk',
+})
+export const offerToRow = (p: PriceEntry, organizationId: string) => ({
+  id: p.id, organization_id: organizationId, ingredient_id: p.ingredientId, supplier_id: p.supplierId, supplier_item_no: p.supplierItemNo.slice(0, 100),
+  package_size: p.packageSize, unit: p.unit, price: Math.round(p.price * 100) / 100, vat_percent: p.vatPercent, priced_at: p.pricedAt, source: 'tilbud',
+})
+
+export interface StockRow {
+  id: string; ingredient_id: string; quantity: number | string; kind: string; moved_at: string; unit_cost: number | string; note: string | null
+}
+const STOCK_KINDS = ['innkjop', 'forbruk', 'svinn', 'telling', 'justering'] as const
+export const stockFromRow = (r: StockRow): StockMovement => ({
+  id: r.id, ingredientId: r.ingredient_id, quantity: num(r.quantity), kind: (STOCK_KINDS as readonly string[]).includes(r.kind) ? (r.kind as StockMovement['kind']) : 'justering',
+  movedAt: r.moved_at, unitCost: num(r.unit_cost), note: r.note ?? '',
+})
+export const stockToRow = (m: StockMovement, organizationId: string) => ({
+  id: m.id, organization_id: organizationId, ingredient_id: m.ingredientId, quantity: Math.round(m.quantity * 10000) / 10000, kind: m.kind,
+  moved_at: m.movedAt, unit_cost: Math.max(0, Math.round(m.unitCost * 1e6) / 1e6), note: m.note.slice(0, 500),
+})
+
+/** Beholdning per ingrediens fra bevegelser. */
+export function stockLevelsFrom(movements: Pick<StockMovement, 'ingredientId' | 'quantity'>[]): Record<Id, number> {
+  const out: Record<Id, number> = {}
+  for (const m of movements) out[m.ingredientId] = (out[m.ingredientId] ?? 0) + m.quantity
+  return out
+}
+
+export interface WasteRow {
+  id: string; logged_at: string; ingredient_id: string | null; recipe_id: string | null; name: string; amount: number | string
+  unit: Ingredient['unit']; cost: number | string; reason: string; note: string | null
+}
+export const wasteFromRow = (r: WasteRow): WasteLog => ({
+  id: r.id, loggedAt: r.logged_at, ingredientId: r.ingredient_id, recipeId: r.recipe_id, name: r.name, amount: num(r.amount), unit: r.unit,
+  cost: num(r.cost), reason: (WASTE_REASONS as string[]).includes(r.reason) ? (r.reason as WasteLog['reason']) : 'annet', note: r.note ?? '',
+})
+export const wasteToRpc = (w: WasteLog, stockQuantity: number | null, unitCost: number) => ({
+  logged_at: w.loggedAt, ingredient_id: w.ingredientId ?? '', recipe_id: w.recipeId ?? '', name: w.name.trim().slice(0, 200) || 'Svinn',
+  amount: w.amount, unit: w.unit, cost: Math.round(Math.max(0, w.cost) * 100) / 100, reason: w.reason, note: w.note.slice(0, 500),
+  stock_quantity: stockQuantity ?? '', unit_cost: Math.max(0, unitCost),
 })
 
 const optNum = (v: number | string | null) => (v === null || v === undefined ? null : num(v))
@@ -406,6 +495,11 @@ export function buildAppData(parts: {
   equipment?: EquipmentRow[]
   costs?: Partial<CostSettings> | null
   menus?: MenuRow[]
+  suppliers?: SupplierRow[]
+  prices?: PriceRow[]
+  stockLevels?: { ingredient_id: string; quantity: number | string }[]
+  stockMovements?: StockRow[]
+  waste?: WasteRow[]
 }): AppData {
   return {
     version: DATA_VERSION,
@@ -416,6 +510,11 @@ export function buildAppData(parts: {
     equipment: (parts.equipment ?? []).map(equipmentFromRow),
     costs: normalizeCostSettings(parts.costs),
     menus: (parts.menus ?? []).map(menuFromRow),
+    suppliers: (parts.suppliers ?? []).map(supplierFromRow),
+    prices: (parts.prices ?? []).map(priceFromRow),
+    stockLevels: Object.fromEntries((parts.stockLevels ?? []).map((l) => [l.ingredient_id, num(l.quantity)])),
+    stockMovements: (parts.stockMovements ?? []).map(stockFromRow),
+    waste: (parts.waste ?? []).map(wasteFromRow),
   }
 }
 

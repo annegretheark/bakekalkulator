@@ -1,6 +1,6 @@
 import type { AllergenCode, AllergenMap, AppData, BakeLog, Ingredient, Recipe } from '../types'
 import { ALLERGEN_CODES } from '../types'
-import { defaultCostSettings, defaultEnergyInput, defaultSettings } from './defaults'
+import { defaultCostSettings, ingredientExtras, defaultEnergyInput, defaultSettings } from './defaults'
 
 export const DATA_VERSION = 1
 
@@ -11,7 +11,7 @@ const allergens = (contains: AllergenCode[] = []): AllergenMap =>
   Object.fromEntries(ALLERGEN_CODES.map((c) => [c, contains.includes(c) ? 'ja' : 'nei'])) as AllergenMap
 
 const ing = (id: string, name: string, category: string, packageSize: number, unit: Ingredient['unit'], price: number, store: string, contains: AllergenCode[] = []): Ingredient => ({
-  id, name, category, packageSize, unit, price, store, priceUpdated: today, allergens: allergens(contains), allergensChecked: true,
+  id, name, category, packageSize, unit, price, store, priceUpdated: today, allergens: allergens(contains), allergensChecked: true, ...ingredientExtras(), ...ingredientExtras(),
 })
 
 /** Eksempelpriser for demonstrasjon – oppdater med egne priser. */
@@ -54,7 +54,7 @@ export const SEED_RECIPES: Recipe[] = [
     ],
     labor: [],
     packagingPerUnit: 0,
-    crossContact: [],
+    crossContact: [], wastePercent: 0,
     steps: [
       'Bland lunkent vann (ca. 37 °C), gjær, honning og olje.',
       'Tilsett salt, sammalt hvete, rug, havregryn og solsikkekjerner.',
@@ -104,9 +104,14 @@ export function seedData(): AppData {
     equipment: [],
     costs: defaultCostSettings(),
     menus: [],
+    suppliers: [],
+    prices: [],
+    stockLevels: {},
+    stockMovements: [],
+    waste: [],
   }
 }
 
 export function emptyData(): AppData {
-  return { version: DATA_VERSION, settings: defaultSettings(), ingredients: [], recipes: [], history: [], equipment: [], costs: defaultCostSettings(), menus: [] }
+  return { version: DATA_VERSION, settings: defaultSettings(), ingredients: [], recipes: [], history: [], equipment: [], costs: defaultCostSettings(), menus: [], suppliers: [], prices: [], stockLevels: {}, stockMovements: [], waste: [] }
 }

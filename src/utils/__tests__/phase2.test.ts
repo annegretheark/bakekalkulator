@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AllergenMap, CostSettings, Ingredient, Menu, Recipe, StaffRole } from '../../types'
 import { ALLERGEN_CODES } from '../../types'
-import { defaultCostSettings, defaultEnergyInput, defaultStaffRole } from '../../lib/defaults'
+import { defaultCostSettings, ingredientExtras, defaultEnergyInput, defaultStaffRole } from '../../lib/defaults'
 import { cleanAllergenMap, markToStatus } from '../../lib/allergens'
 import { recipeBaseCost, recipeCost, subRecipeCandidates, subRecipeFraction, subRecipeLineCost, wouldCreateCycle, type RecipeCostContext } from '../recipeCost'
 import { hourlyCost, laborCost, overhead } from '../staffCosts'
@@ -15,7 +15,7 @@ import { equipmentFromTemplate } from '../../lib/equipmentTemplates'
 const allNo = (contains: Partial<AllergenMap> = {}): AllergenMap => ({ ...Object.fromEntries(ALLERGEN_CODES.map((c) => [c, 'nei'])), ...contains })
 
 const ing = (id: string, price: number, allergens: AllergenMap, unit: Ingredient['unit'] = 'kg', checked = true): Ingredient => ({
-  id, name: id, category: '', packageSize: 1, unit, price, store: '', priceUpdated: '2026-11-28', allergens, allergensChecked: checked,
+  id, name: id, category: '', packageSize: 1, unit, price, store: '', priceUpdated: '2026-11-28', allergens, allergensChecked: checked, ...ingredientExtras(),
 })
 
 // Ingen strøm i testoppskriftene: manuelt oppsett med 0 W
@@ -23,7 +23,7 @@ const noEnergy = () => ({ ...defaultEnergyInput(), ovenWatt: 0, mixerWatt: 0, pr
 
 const rec = (id: string, p: Partial<Recipe> = {}): Recipe => ({
   id, name: id, type: 'annet', category: 'annet', yieldCount: 4, yieldUnit: 'porsjoner', prepMinutes: 0, finishedWeightG: null,
-  ingredients: [], labor: [], packagingPerUnit: 0, crossContact: [], steps: [], riseMinutes: 0, bakeMinutes: 0,
+  ingredients: [], labor: [], packagingPerUnit: 0, crossContact: [], wastePercent: 0, steps: [], riseMinutes: 0, bakeMinutes: 0,
   storePricePerItem: 0, notes: '', energy: noEnergy(), createdAt: '', updatedAt: '', ...p,
 })
 
@@ -275,7 +275,7 @@ describe('lagring og bakoverkompatibilitet', () => {
     expect(normalizeRecipe(old as Recipe)).toMatchObject({ labor: [], packagingPerUnit: 0, crossContact: [] })
     const oldIng = { ...mel } as Partial<Ingredient>
     delete oldIng.allergens; delete oldIng.allergensChecked
-    expect(normalizeIngredient(oldIng as Ingredient)).toMatchObject({ allergens: {}, allergensChecked: true })
+    expect(normalizeIngredient(oldIng as Ingredient)).toMatchObject({ allergens: {}, allergensChecked: true, ...ingredientExtras() })
     expect(normalizeCostSettings(undefined)).toEqual(defaultCostSettings())
     expect(normalizeCostSettings({ unitsPerMonth: -5, staffRoles: 'x' as never })).toMatchObject({ unitsPerMonth: 0, staffRoles: [] })
   })

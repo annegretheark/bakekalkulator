@@ -445,3 +445,19 @@ tr.warn-row td { background: var(--wheat-soft); }
   .scan-choice { padding: 14px; min-height: 110px; }
 }
 @media (max-width: 380px) { .scan-choices { grid-template-columns: 1fr; } }
+
+/* ---------- Fase 4: lager, svinn og dashboard ---------- */
+.kv-row { display: contents; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.toolbar .search { flex: 1; min-width: 200px; margin: 0; }
+.toolbar .check { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+.row-actions .btn.small { margin-left: 4px; }
+.plain-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.9rem; }
+tr.sub-row td { background: var(--surface-2); }
+.bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.bars li { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center; font-size: 0.85rem; }
+.bar-label { color: var(--ink-2); }
+.bar-track { height: 12px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.bar-fill { display: block; height: 100%; border-radius: 99px; background: var(--bar); }
+.bar-value { font-variant-numeric: tabular-nums; text-align: right; min-width: 72px; }
+.price-compare td.best { color: var(--green); font-weight: 650; }

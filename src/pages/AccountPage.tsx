@@ -10,7 +10,7 @@ import { dbErrorMessage } from '../services/storage/mappers'
 import { getImportRecord, hasImportableData, importLocalData, saveImportRecord, type ImportResult } from '../services/importLocal'
 import { formatDate } from '../utils/format'
 import type { OrgRole } from '../context/authContext'
-import type { Plan } from '../types'
+import { PLANS, type Plan } from '../types'
 import { reauthenticate, type AuthClient } from '../services/auth'
 
 const ROLE_NAMES: Record<OrgRole, string> = { owner: 'Eier', admin: 'Administrator', member: 'Medlem' }
@@ -95,13 +95,16 @@ function PlanTable({ current }: { current: Plan }) {
   return (
     <div className="table-wrap">
       <table className="clean">
-        <thead><tr><th /> {(['free', 'plus', 'pro'] as Plan[]).map((p) => <th key={p} className={`num ${p === current ? 'current-plan' : ''}`}>{PLAN_NAMES[p]}</th>)}</tr></thead>
+        <thead><tr><th /> {PLANS.map((p) => <th key={p} className={`num ${p === current ? 'current-plan' : ''}`}>{PLAN_NAMES[p]}</th>)}</tr></thead>
         <tbody>
-          <tr><td>Oppskrifter</td>{(['free', 'plus', 'pro'] as Plan[]).map((p) => <td key={p} className="num">{lim(PLAN_FEATURES[p].maxRecipes)}</td>)}</tr>
-          <tr><td>Ingredienser</td>{(['free', 'plus', 'pro'] as Plan[]).map((p) => <td key={p} className="num">{lim(PLAN_FEATURES[p].maxIngredients)}</td>)}</tr>
-          <tr><td>Brukere (bedrift)</td>{(['free', 'plus', 'pro'] as Plan[]).map((p) => <td key={p} className="num">{PLAN_FEATURES[p].maxMembers}</td>)}</tr>
-          <tr><td>Salg og fortjeneste</td>{(['free', 'plus', 'pro'] as Plan[]).map((p) => <td key={p} className="num">{PLAN_FEATURES[p].salesCalculator ? 'Ja' : '–'}</td>)}</tr>
-          <tr><td>Skanning av oppskrifter og kvitteringer</td>{(['free', 'plus', 'pro'] as Plan[]).map((p) => <td key={p} className="num">{PLAN_FEATURES[p].scanning ? 'Ja' : '–'}</td>)}</tr>
+          <tr><td>Oppskrifter</td>{PLANS.map((p) => <td key={p} className="num">{lim(PLAN_FEATURES[p].maxRecipes)}</td>)}</tr>
+          <tr><td>Ingredienser</td>{PLANS.map((p) => <td key={p} className="num">{lim(PLAN_FEATURES[p].maxIngredients)}</td>)}</tr>
+          <tr><td>Brukere (bedrift)</td>{PLANS.map((p) => <td key={p} className="num">{PLAN_FEATURES[p].maxMembers}</td>)}</tr>
+          <tr><td>Salg og fortjeneste</td>{PLANS.map((p) => <td key={p} className="num">{PLAN_FEATURES[p].salesCalculator ? 'Ja' : '–'}</td>)}</tr>
+          <tr><td>Skanning av oppskrifter og kvitteringer</td>{PLANS.map((p) => <td key={p} className="num">{PLAN_FEATURES[p].scanning ? 'Ja' : '–'}</td>)}</tr>
+          <tr><td>AI-skanninger per måned</td>{PLANS.map((p) => <td key={p} className="num">{PLAN_FEATURES[p].aiScans}</td>)}</tr>
+          <tr><td>Lager, matsvinn og flere leverandører</td>{PLANS.map((p) => <td key={p} className="num">{PLAN_FEATURES[p].inventory ? 'Ja' : '–'}</td>)}</tr>
+          <tr><td>Utvidet dashboard</td>{PLANS.map((p) => <td key={p} className="num">{PLAN_FEATURES[p].advancedDashboard ? 'Ja' : '–'}</td>)}</tr>
         </tbody>
       </table>
     </div>

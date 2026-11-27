@@ -112,7 +112,7 @@ export function MenusPage() {
               <table className="clean responsive menu-table">
                 <thead>
                   <tr>
-                    <th>Rett</th><th className="num">Råvarer</th><th className="num">Energi</th><th className="num">Personal</th>
+                    <th>Rett</th><th className="num">Råvarer</th><th className="num">Energi</th><th className="num">Personal</th><th className="num">Svinn</th>
                     <th className="num">Embal&shy;lasje</th><th className="num">Drift</th><th className="num">Kostnad</th>
                     <th className="num">Pris eks. mva</th><th className="num">Fort&shy;jeneste</th><th className="num">Margin</th><th className="num">Råvare&shy;andel</th>
                   </tr>
@@ -128,7 +128,7 @@ export function MenusPage() {
             <dt>Snitt råvareandel</dt><dd>{sum.avgFoodCostPercent === null ? '–' : formatPercent(sum.avgFoodCostPercent, f.locale)}</dd>
           </dl>
           {warnings.length > 0 && <Notice tone="warn">{warnings.slice(0, 6).join('. ')}{warnings.length > 6 ? ' …' : ''}</Notice>}
-          <p className="muted small">Energi regnes med {source}. Driftskostnader fordeles etter antall per måned under Personal og drift. Svinn kommer i en senere versjon.</p>
+          <p className="muted small">Energi regnes med {source}. Driftskostnader fordeles etter antall per måned under Personal og drift. Svinn er råvaresvinn fra ingrediensene og tilberedningssvinn fra oppskriftene.</p>
         </Card>
 
         <Card title="Prisforslag" className="no-print">
@@ -228,6 +228,7 @@ function MenuRow({ calc: i }: { calc: MenuItemCalc }) {
       <td data-label="Råvarer" className="num">{formatMoney(c?.ingredients ?? null, f)}</td>
       <td data-label="Energi" className="num">{formatMoney(c?.energy ?? null, f)}</td>
       <td data-label="Personal" className="num">{formatMoney(c?.labor ?? null, f)}</td>
+      <td data-label="Svinn" className="num">{formatMoney(c?.waste ?? null, f)}</td>
       <td data-label="Emballasje" className="num">{formatMoney(c?.packaging ?? null, f)}</td>
       <td data-label="Drift" className="num">{formatMoney(c?.overhead ?? null, f)}</td>
       <td data-label="Kostnad" className="num"><strong>{formatMoney(c?.total ?? null, f)}</strong></td>

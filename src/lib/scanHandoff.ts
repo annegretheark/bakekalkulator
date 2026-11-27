@@ -1,9 +1,10 @@
 import type { Ingredient, Recipe } from '../types'
+import { ingredientExtras } from './defaults'
 import { toLocalDateKey, uid } from '../utils/format'
 
 /** Tom ingrediens med dagens dato. */
 export const blankIngredient = (): Ingredient => ({
-  id: uid(), name: '', category: '', packageSize: 1, unit: 'kg', price: 0, store: '', priceUpdated: toLocalDateKey(new Date()), allergens: {}, allergensChecked: true,
+  id: uid(), name: '', category: '', packageSize: 1, unit: 'kg', price: 0, store: '', priceUpdated: toLocalDateKey(new Date()), allergens: {}, allergensChecked: true, ...ingredientExtras(),
 })
 
 /**

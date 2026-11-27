@@ -25,7 +25,7 @@ const newRecipe = (p: BusinessProfile): Recipe => {
   return {
     id: uid(), name: '', type: bakeTypeForCategory(p.defaultCategory, 'brod'), category: p.defaultCategory,
     yieldCount: p.defaultYieldUnit === 'porsjoner' ? 4 : 1, yieldUnit: p.defaultYieldUnit, prepMinutes: 0, finishedWeightG: null,
-    ingredients: [], labor: [], packagingPerUnit: 0, crossContact: [], steps: [''], riseMinutes: p.defaultCategory === 'brod_bakervarer' ? 60 : 0, bakeMinutes: p.defaultCategory === 'brod_bakervarer' ? 45 : 0,
+    ingredients: [], labor: [], packagingPerUnit: 0, crossContact: [], wastePercent: 0, steps: [''], riseMinutes: p.defaultCategory === 'brod_bakervarer' ? 60 : 0, bakeMinutes: p.defaultCategory === 'brod_bakervarer' ? 45 : 0,
     storePricePerItem: 0, notes: '', energy: defaultEnergyInput(), createdAt: now, updatedAt: now,
   }
 }
@@ -156,10 +156,11 @@ export function RecipesPage() {
               {subs.length > 0 && <p className="muted small"><Layers size={14} aria-hidden /> Velg «Underoppskrift» i listen for å bruke en saus, deig eller dressing. Mengden oppgis i g/kg (krever ferdig vekt) eller stk/porsjoner.</p>}
             </Card>
 
-            <Card title="Arbeidstid og emballasje" icon={Users}>
+            <Card title="Arbeidstid, emballasje og svinn" icon={Users}>
               <LaborEditor lines={e.labor} roles={data.costs.staffRoles} onChange={(labor) => set({ labor })} canEditRoles={canEditCosts} />
               <div className="form-grid">
                 <NumberField label="Emballasje" value={e.packagingPerUnit} max={100000} onChange={(v) => set({ packagingPerUnit: v })} suffix={`kr/${yieldWord(e.yieldUnit, 1)}`} hint="Boks, pose, beger, serviett" />
+                <NumberField label="Tilberedningssvinn" value={e.wastePercent} max={94} onChange={(v) => set({ wastePercent: v })} suffix="%" hint="Andel som går tapt eller kastes i produksjonen. Råvaresvinn settes på ingrediensen." />
               </div>
             </Card>
 
@@ -353,6 +354,7 @@ function CostList({ bd, unit, perKg, label }: { bd: RecipeBreakdown; unit: strin
         <dt>Råvarer</dt><dd>{formatMoney(bd.bake.ingredientCost, f)}</dd>
         <dt>Strøm (estimert)</dt><dd>{formatMoney(bd.bake.electricityCost, f)}</dd>
         {bd.labor > 0 && <><dt>Personal</dt><dd>{formatMoney(bd.labor, f)}</dd></>}
+        {bd.waste > 0 && <><dt>Svinn</dt><dd>{formatMoney(bd.waste, f)}</dd></>}
         {bd.packaging > 0 && <><dt>Emballasje</dt><dd>{formatMoney(bd.packaging, f)}</dd></>}
         {bd.overhead > 0 && <><dt>Driftskostnader</dt><dd>{formatMoney(bd.overhead, f)}</dd></>}
         <dt>Totalt{label ? ` (${label})` : ''}</dt><dd><strong>{formatMoney(bd.total, f)}</strong></dd>

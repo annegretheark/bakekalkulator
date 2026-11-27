@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { ingredientExtras } from '../lib/defaults'
 import { Barcode, Camera, ImageUp, Lock, Package, Receipt, ScanText, Sparkles, X } from 'lucide-react'
 import { UNITS, type Ingredient, type Recipe, type Unit } from '../types'
 import { useData, useFormat } from '../hooks/useData'
@@ -167,7 +168,7 @@ export function RecipeScanPanel({ onDone, onCancel, upload }: { onDone: (r: Reci
         if (r.target === SKIP) continue
         let id = r.target
         if (r.target === NEW) {
-          const ing: Ingredient = { id: uid(), name: r.name.trim() || 'Ukjent', category: '', packageSize: 1, unit: packageUnitFor(r.unit), price: 0, store: '', priceUpdated: today, allergens: {}, allergensChecked: true }
+          const ing: Ingredient = { id: uid(), name: r.name.trim() || 'Ukjent', category: '', packageSize: 1, unit: packageUnitFor(r.unit), price: 0, store: '', priceUpdated: today, allergens: {}, allergensChecked: true, ...ingredientExtras() }
           await upsertIngredient(ing)
           id = ing.id
           created++
@@ -182,7 +183,7 @@ export function RecipeScanPanel({ onDone, onCancel, upload }: { onDone: (r: Reci
       onDone({
         id: uid(), name: name.trim(), type: 'brod', yieldCount: Math.max(1, Math.round(yieldCount)), ingredients,
         category: profile.defaultCategory, yieldUnit: extra?.yieldUnit ?? profile.defaultYieldUnit,
-        prepMinutes: extra?.prepMinutes ?? 0, finishedWeightG: null, labor: [], packagingPerUnit: 0, crossContact: [],
+        prepMinutes: extra?.prepMinutes ?? 0, finishedWeightG: null, labor: [], packagingPerUnit: 0, crossContact: [], wastePercent: 0,
         steps: parsed.steps.length ? parsed.steps : [''], riseMinutes: profile.defaultCategory === 'brod_bakervarer' ? 60 : 0, bakeMinutes: energy.bakeMinutes,
         storePricePerItem: 0, notes: `Skannet fra bilde${aiParsed ? ' med AI' : ''} – kontroller mengder og steg.`, energy, createdAt: now, updatedAt: now,
       }, created)
@@ -319,7 +320,7 @@ export function ReceiptScanPanel({ onClose, upload }: { onClose: (message?: stri
           await upsertIngredient({ ...existing, price: r.price, packageSize: r.packageSize, unit: r.unit, store: store || existing.store, priceUpdated: priceDate })
           updated++
         } else {
-          await upsertIngredient({ id: uid(), name: r.name.trim(), category: '', packageSize: r.packageSize, unit: r.unit, price: r.price, store, priceUpdated: priceDate, allergens: {}, allergensChecked: true })
+          await upsertIngredient({ id: uid(), name: r.name.trim(), category: '', packageSize: r.packageSize, unit: r.unit, price: r.price, store, priceUpdated: priceDate, allergens: {}, allergensChecked: true, ...ingredientExtras() })
           created++
         }
       }
@@ -418,14 +419,14 @@ export function IngredientScanPanel({ onDone, onCancel, upload }: { onDone: (dra
       try {
         product = await lookupProduct(ean)
       } catch (e) {
-        if (e instanceof ProductLookupError) { onDone(blankIngredient(), `${e.message} Strekkode ${ean}.`); return }
+        if (e instanceof ProductLookupError) { onDone({ ...blankIngredient(), ean }, `${e.message} Strekkode ${ean}.`); return }
         throw e
       }
-      if (!product) { onDone(blankIngredient(), `Strekkode ${ean} finnes ikke i varedatabasen. Fyll inn varen selv.`); return }
+      if (!product) { onDone({ ...blankIngredient(), ean }, `Strekkode ${ean} finnes ikke i varedatabasen. Fyll inn varen selv.`); return }
       const withBrand = product.brand && !product.name.toLowerCase().includes(product.brand.toLowerCase()) ? `${product.name} (${product.brand})` : product.name
       const hasAllergens = Object.keys(product.allergens).length > 0
       onDone(
-        { ...blankIngredient(), name: withBrand, packageSize: product.packageSize ?? 1, unit: product.unit ?? 'stk', category: product.category, allergens: product.allergens, allergensChecked: !hasAllergens },
+        { ...blankIngredient(), ean, manufacturer: product.brand, comment: product.ingredientsText ? `Ingredienser: ${product.ingredientsText}`.slice(0, 2000) : '', name: withBrand, packageSize: product.packageSize ?? 1, unit: product.unit ?? 'stk', category: product.category, allergens: product.allergens, allergensChecked: !hasAllergens },
         `Fant «${product.name}» i Open Food Facts. Kontroller pakningsstørrelsen, legg inn prisen du betalte${hasAllergens ? ' og kontroller allergenene mot pakningen' : ''}.`,
       )
     } catch (e) {
