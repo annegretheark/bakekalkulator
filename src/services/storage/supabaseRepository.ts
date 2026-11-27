@@ -135,7 +135,13 @@ export class SupabaseRepository implements DataRepository {
   }
 
   async upsertSupplier(s: Supplier): Promise<void> {
-    this.check(await this.client.from('suppliers').upsert(supplierToRow(s, this.organizationId)))
+    // Oppdater først, opprett hvis den ikke finnes. Ikke upsert: den krever
+    // oppdateringsrett på id og organization_id, som klienten ikke har.
+    const { id, organization_id, ...fields } = supplierToRow(s, this.organizationId)
+    const updated = this.check(await this.client.from('suppliers').update(fields).eq('id', id).eq('organization_id', organization_id).select('id'))
+    if (!updated || updated.length === 0) {
+      this.check(await this.client.from('suppliers').insert({ id, organization_id, ...fields }))
+    }
   }
 
   async deleteSupplier(id: Id): Promise<void> {

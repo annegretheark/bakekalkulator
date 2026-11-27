@@ -131,6 +131,31 @@ describe('leverandører og prishistorikk', () => {
   })
 })
 
+describe('appens egne kall (samme rettigheter som i produksjon)', () => {
+  it('leverandør: oppdater, opprett og slett slik appen gjør', async () => {
+    const id = '11111111-2222-4333-8444-555555555555'
+    // Oppdatering av en som ikke finnes gir 0 rader, deretter innsetting
+    expect(await t.as(staff, `update public.suppliers set name = 'Ny' where id = $1 and organization_id = $2 returning id`, [id, bizOrg])).toHaveLength(0)
+    await t.as(staff, `insert into public.suppliers (id, organization_id, name, contact_person, phone, email, customer_number, comment) values ($1, $2, 'Bakers', '', '', '', '', '')`, [id, bizOrg])
+    expect(await t.as(staff, `update public.suppliers set name = 'Bakers AS', phone = '1' where id = $1 and organization_id = $2 returning id`, [id, bizOrg])).toHaveLength(1)
+    expect(await t.as(staff, 'delete from public.suppliers where id = $1 and organization_id = $2 returning id', [id, bizOrg])).toHaveLength(1)
+  })
+
+  it('upsert er ikke tillatt (klienten kan ikke endre id eller organisasjon)', async () => {
+    await expect(t.as(staff, `insert into public.suppliers (id, organization_id, name) values (gen_random_uuid(), $1, 'X')
+      on conflict (id) do update set organization_id = excluded.organization_id, name = excluded.name`, [bizOrg])).rejects.toThrow(/permission denied/)
+  })
+
+  it('meny, tilbud og kostnadsoppsett kan leses og slettes av medlemmer slik appen gjør', async () => {
+    const m = (await t.as<{ id: string }>(staff, 'select public.save_menu($1, $2) as id', [bizOrg, { name: 'Test', menu_type: 'egen', items: [] }]))[0].id
+    expect(await t.as(staff, 'delete from public.menus where id = $1 and organization_id = $2 returning id', [m, bizOrg])).toHaveLength(1)
+    const o = (await t.as<{ id: string }>(staff, `insert into public.ingredient_prices (organization_id, ingredient_id, package_size, unit, price, source) values ($1, $2, 1, 'kg', 10, 'tilbud') returning id`, [bizOrg, flour]))[0].id
+    expect(await t.as(staff, `delete from public.ingredient_prices where id = $1 and organization_id = $2 and source = 'tilbud' returning id`, [o, bizOrg])).toHaveLength(1)
+    await expect(t.as(staff, 'select settings from public.cost_settings where organization_id = $1', [bizOrg])).resolves.toBeDefined()
+    await expect(t.as(staff, 'select * from public.waste_logs where organization_id = $1', [bizOrg])).resolves.toBeDefined()
+  })
+})
+
 describe('lager', () => {
   it('innkjøp og uttak gir beholdning; varetelling setter den', async () => {
     await t.as(staff, `insert into public.stock_movements (organization_id, ingredient_id, quantity, kind, unit_cost) values ($1, $2, 50, 'innkjop', 18), ($1, $2, -12.5, 'forbruk', 18)`, [bizOrg, flour])
