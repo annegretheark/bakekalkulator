@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { BookOpen, Calculator, ChartColumn, History, LayoutDashboard, LogIn, Menu, Settings, Shield, ShoppingBasket, UserRound, Wheat, X, Zap } from 'lucide-react'
+import { BookOpen, Calculator, ChartColumn, History, LayoutDashboard, LogIn, Menu, Settings, WifiOff, Shield, ShoppingBasket, UserRound, Wheat, X, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { navigate, type RouteKey } from '../hooks/useRoute'
 import { useData, useFormat, useT } from '../hooks/useData'
@@ -8,6 +8,7 @@ import type { TranslationKey } from '../locales'
 import { AREA_NAMES } from '../lib/defaults'
 import { formatOre } from '../utils/format'
 import { useAuth } from '../hooks/useAuth'
+import { useOnline } from '../hooks/useOnline'
 import { PLAN_NAMES, trialDaysLeft } from '../lib/plans'
 
 const NAV: { key: RouteKey; label: TranslationKey; icon: LucideIcon }[] = [
@@ -31,6 +32,7 @@ export function Layout({ route, children }: { route: RouteKey; children: ReactNo
   const [open, setOpen] = useState(false)
   const area = data.settings.price.area
   const auth = useAuth()
+  const online = useOnline()
   const days = trialDaysLeft(auth.activeOrg?.subscription)
   // Ikke innlogget (med Supabase): appen er låst, så menyen skjules
   const locked = auth.configured && !auth.user
@@ -100,6 +102,12 @@ export function Layout({ route, children }: { route: RouteKey; children: ReactNo
           <span className="brand-inline"><Wheat size={18} aria-hidden /> {t('app.name')}</span>
           <span className="topbar-price">{prices.currentTotal !== null ? formatOre(prices.currentTotal, locale) : ''}</span>
         </header>
+        {!online && (
+          <div className="notice notice-warn offline-banner" role="status">
+            <WifiOff size={18} aria-hidden />
+            <span>Du er uten nett. Det som allerede er lastet vises fortsatt, men lagring, strømpriser og strekkodeoppslag virker først når du er på nett igjen.</span>
+          </div>
+        )}
         <main className="content">{children}</main>
         {!locked && <nav className="tabbar only-mobile" aria-label="Snarveier">
           {NAV.filter((n) => MOBILE_TABS.includes(n.key)).map(({ key, label, icon: Icon }) => (
