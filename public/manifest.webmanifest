@@ -1,7 +1,7 @@
 {
-  "name": "Rett i lomma – Bakekalkulator",
-  "short_name": "Bakekalkulator",
-  "description": "Beregn hva hjemmebakst koster i strøm og ingredienser.",
+  "name": "Rett i lomma – Matkalkulator",
+  "short_name": "Matkalkulator",
+  "description": "Beregn hva mat og bakst koster i strøm, råvarer og utstyr.",
   "lang": "nb",
   "start_url": "/",
   "scope": "/",

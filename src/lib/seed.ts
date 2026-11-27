@@ -30,7 +30,11 @@ export const SEED_RECIPES: Recipe[] = [
     id: 'rec-grovbrod',
     name: 'Tre grove brød',
     type: 'brod',
+    category: 'brod_bakervarer',
     yieldCount: 3,
+    yieldUnit: 'stk',
+    prepMinutes: 20,
+    finishedWeightG: 3300,
     ingredients: [
       { id: 'ri-1', ingredientId: 'ing-vann', amount: 1.5, unit: 'l' },
       { id: 'ri-2', ingredientId: 'ing-gjar', amount: 24, unit: 'g' },
@@ -89,9 +93,10 @@ export function seedData(): AppData {
     ingredients: SEED_INGREDIENTS,
     recipes: SEED_RECIPES,
     history: SEED_HISTORY,
+    equipment: [],
   }
 }
 
 export function emptyData(): AppData {
-  return { version: DATA_VERSION, settings: defaultSettings(), ingredients: [], recipes: [], history: [] }
+  return { version: DATA_VERSION, settings: defaultSettings(), ingredients: [], recipes: [], history: [], equipment: [] }
 }

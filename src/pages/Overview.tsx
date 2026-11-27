@@ -2,6 +2,7 @@ import { ArrowRight, Calculator, Clock, Coins, Croissant, PiggyBank, TrendingUp,
 import { useData, useFormat, useT } from '../hooks/useData'
 import { useCheapestWindow, usePriceData } from '../hooks/usePriceData'
 import { useBakeResult } from '../hooks/useBakeResult'
+import { useBusiness } from '../hooks/useBusiness'
 import { Card, EmptyState, PageHeader, StatCard } from '../components/ui'
 import { PriceChart } from '../components/PriceChart'
 import { summarize } from '../utils/stats'
@@ -17,6 +18,8 @@ export function Overview() {
   const prices = usePriceData()
   const { window } = useCheapestWindow(draft.energy)
   const { result } = useBakeResult()
+  const { profile } = useBusiness()
+  const bakery = profile.productionWord === 'baking'
   const s = summarize(data.history)
   const breads = data.history.filter((l) => l.type === 'brod').reduce((a, l) => a + l.count, 0)
   const area = data.settings.price.area
@@ -26,7 +29,7 @@ export function Overview() {
 
   return (
     <>
-      <PageHeader title="God dag, baker!" description="Her er status for bakingen din og strømprisen akkurat nå."
+      <PageHeader title={profile.greeting} description={profile.overviewText}
         actions={<button className="btn primary" onClick={() => navigate('kalkulator')}><Calculator size={18} /> Ny beregning</button>} />
 
       <div className="hero">
@@ -36,7 +39,7 @@ export function Overview() {
           <span className="hero-sub">{t(`customerType.${data.settings.price.customerType}`)} · {t(`priceMode.${mode}`)} · dagens snitt {formatOre(prices.todayAverage, f.locale)}</span>
         </div>
         <div>
-          <span className="hero-label"><Clock size={16} /> Billigste tidspunkt å bake</span>
+          <span className="hero-label"><Clock size={16} /> {bakery ? 'Billigste tidspunkt å bake' : 'Billigste tidspunkt å produsere'}</span>
           <strong className="hero-value">{!isSpot ? 'Når som helst' : window ? `${formatTime(window.start, f.locale)}–${formatTime(window.end, f.locale)}` : '–'}</strong>
           <span className="hero-sub">{window && isSpot ? `${new Date(window.start).toDateString() !== prices.now.toDateString() ? 'I morgen · ' : ''}ovnen koster ${formatMoney(window.cost, f)}` : isSpot ? 'Venter på prisdata' : 'Fast pris hele døgnet'}</span>
         </div>
@@ -48,10 +51,10 @@ export function Overview() {
       </div>
 
       <div className="stats-grid">
-        <StatCard icon={Croissant} label="Bakte varer totalt" value={`${s.items} stk`} sub={`${breads} brød · ${s.items - breads} andre`} />
+        <StatCard icon={Croissant} label={bakery ? 'Bakte varer totalt' : 'Produsert totalt'} value={`${s.items} ${bakery ? 'stk' : 'enheter'}`} sub={bakery ? `${breads} brød · ${s.items - breads} andre` : `${s.bakes} ${profile.productionWordPlural}`} />
         <StatCard icon={Zap} label="Totalt strømforbruk" value={formatKwh(s.kwh, f.locale)} sub={formatMoney(s.electricityCost, f)} />
-        <StatCard icon={Coins} label="Totale bakekostnader" value={formatMoney(s.totalCost, f)} sub={`Snitt ${formatMoney(s.avgCostPerItem, f)} per stk`} />
-        <StatCard icon={PiggyBank} label="Spart vs. butikk" value={formatMoney(s.savings, f)} tone={s.savings >= 0 ? 'green' : 'red'} sub={`${s.bakes} bakinger`} />
+        <StatCard icon={Coins} label={bakery ? 'Totale bakekostnader' : 'Totale produksjonskostnader'} value={formatMoney(s.totalCost, f)} sub={`Snitt ${formatMoney(s.avgCostPerItem, f)} per stk`} />
+        {profile.showStorePrice && <StatCard icon={PiggyBank} label="Spart vs. butikk" value={formatMoney(s.savings, f)} tone={s.savings >= 0 ? 'green' : 'red'} sub={`${s.bakes} ${profile.productionWordPlural}`} />}
         <StatCard icon={TrendingUp} label="Salg og fortjeneste" value={s.revenue > 0 ? formatMoney(s.profit, f) : '–'} sub={s.revenue > 0 ? `Omsetning ${formatMoney(s.revenue, f)}` : 'Ingen salg registrert'} />
       </div>
 
@@ -60,9 +63,9 @@ export function Overview() {
           {nextDay.length ? <PriceChart intervals={nextDay} now={prices.now} highlight={isSpot ? window : null} locale={f.locale} />
             : <p className="muted">{prices.loading ? 'Henter priser …' : 'Ingen prisdata tilgjengelig akkurat nå.'}</p>}
         </Card>
-        <Card title="Siste bakinger" icon={Croissant} actions={<button className="link" onClick={() => navigate('historikk')}>Alle <ArrowRight size={14} /></button>}>
+        <Card title={`Siste ${profile.productionWordPlural}`} icon={Croissant} actions={<button className="link" onClick={() => navigate('historikk')}>Alle <ArrowRight size={14} /></button>}>
           {data.history.length === 0
-            ? <EmptyState icon={Croissant} title="Ingen bakinger ennå" text="Lagre en baking fra kalkulatoren for å komme i gang." />
+            ? <EmptyState icon={Croissant} title={`Ingen ${profile.productionWordPlural} ennå`} text={`Lagre en ${profile.productionWord} fra kalkulatoren for å komme i gang.`} />
             : (
               <ul className="recent">
                 {[...data.history].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map((l) => (

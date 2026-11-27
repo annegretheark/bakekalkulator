@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { AppData, AppSettings, BakeLog, Id, Ingredient, Recipe } from '../types'
+import type { AppData, AppSettings, BakeLog, BusinessType, EquipmentItem, Id, Ingredient, Recipe } from '../types'
+import { syncEnergyWithRegister } from '../utils/equipment'
 import type { DataRepository } from '../services/storage'
 import { emptyData } from '../lib/seed'
 import { defaultEnergyInput, defaultSalesDraft } from '../lib/defaults'
@@ -7,6 +8,15 @@ import { DataContext, type CalculatorDraft } from './dataContext'
 
 function upsert<T extends { id: Id }>(list: T[], item: T): T[] {
   return list.some((x) => x.id === item.id) ? list.map((x) => (x.id === item.id ? item : x)) : [...list, item]
+}
+
+/** Oppdaterer utstyrsverdiene i oppskriftene fra registeret (effekt, forvarming, målt forbruk). */
+function withSyncedEquipment(d: AppData): AppData {
+  if (!d.equipment.length) return d
+  return { ...d, recipes: d.recipes.map((r) => {
+    const energy = syncEnergyWithRegister(r.energy, d.equipment)
+    return energy === r.energy ? r : { ...r, energy }
+  }) }
 }
 
 /**
@@ -23,7 +33,8 @@ export function DataProvider({ children, repository: repo }: { children: ReactNo
 
   useEffect(() => {
     repo.load()
-      .then((d) => {
+      .then((loaded) => {
+        const d = withSyncedEquipment(loaded)
         setData(d)
         const r = d.recipes[0]
         if (r) {
@@ -63,6 +74,12 @@ export function DataProvider({ children, repository: repo }: { children: ReactNo
     addLog: (l: BakeLog) => mutate((d) => ({ ...d, history: [l, ...d.history] }), () => repo.addLog(l)),
     deleteLog: (id: Id) => mutate((d) => ({ ...d, history: d.history.filter((x) => x.id !== id) }), () => repo.deleteLog(id)),
     replaceAll: (nd: AppData) => mutate(() => nd, () => repo.replaceAll(nd)),
+    upsertEquipment: async (e: EquipmentItem) => {
+      await mutate((d) => withSyncedEquipment({ ...d, equipment: upsert(d.equipment, e) }), () => repo.upsertEquipment(e))
+      setDraftState((dr) => ({ ...dr, energy: syncEnergyWithRegister(dr.energy, [e]) }))
+    },
+    deleteEquipment: (id: Id) => mutate((d) => ({ ...d, equipment: d.equipment.filter((x) => x.id !== id) }), () => repo.deleteEquipment(id)),
+    saveBusinessType: (t: BusinessType) => mutate((d) => ({ ...d, settings: { ...d.settings, businessType: t } }), () => repo.saveBusinessType(t)),
   }), [data, loading, error, draft, mutate, repo])
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

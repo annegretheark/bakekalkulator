@@ -3,10 +3,12 @@ import { Building2, KeyRound, LogIn, Mail, User, UserPlus } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { navigate } from '../hooks/useRoute'
 import { readLastEmail, rememberEmail } from '../lib/lastEmail'
-import { Card, Notice, PageHeader, Segmented, TextField } from '../components/ui'
+import { Card, Notice, PageHeader, SelectField, TextField } from '../components/ui'
+import { BUSINESS_TYPE_NAMES } from '../lib/businessTypes'
+import { BUSINESS_TYPES, type BusinessType } from '../types'
 import {
   MIN_PASSWORD_LENGTH, requestPasswordReset, resendConfirmation, signIn, signUp, updatePassword, validateRegistration,
-  type AccountType, type AuthClient, type RegistrationInput,
+  type AuthClient, type RegistrationInput,
 } from '../services/auth'
 
 function NotConfigured() {
@@ -56,7 +58,7 @@ export function LoginPage() {
 
   return (
     <>
-      <PageHeader title="Logg inn" description="Logg inn for å bruke Bakekalkulatoren. Ny bruker? Opprett en konto og få 30 dager gratis Pro." />
+      <PageHeader title="Logg inn" description="Logg inn for å bruke Matkalkulatoren. Ny bruker? Opprett en konto og få 30 dager gratis Pro." />
       <Card className="auth-card">
         <form onSubmit={submit} className="stack" noValidate>
           <TextField label="E-post" type="email" value={email} onChange={setEmail} />
@@ -80,7 +82,7 @@ export function LoginPage() {
 
 export function RegisterPage() {
   const { client, user } = useAuth()
-  const [form, setForm] = useState<RegistrationInput>({ fullName: '', email: '', password: '', passwordConfirm: '', accountType: 'private', organizationName: '', acceptTerms: false, acceptPrivacy: false })
+  const [form, setForm] = useState<RegistrationInput>({ fullName: '', email: '', password: '', passwordConfirm: '', accountType: 'private', businessType: 'privat', organizationName: '', acceptTerms: false, acceptPrivacy: false })
   const [done, setDone] = useState<string | null>(null)
   const [touched, setTouched] = useState(false)
   const { busy, error, run } = useSubmit()
@@ -120,10 +122,10 @@ export function RegisterPage() {
       <Card className="auth-card">
         <form onSubmit={submit} className="stack" noValidate>
           <div className="field">
-            <span className="label">Kontotype</span>
-            <Segmented<AccountType> label="Kontotype" value={form.accountType} onChange={(v) => set('accountType', v)}
-              options={[{ value: 'private', label: 'Privatperson' }, { value: 'business', label: 'Bedrift' }]} />
-            <small className="muted">{form.accountType === 'business' ? 'Bedrifter kan invitere flere brukere og får priser eks. mva.' : 'For hjemmebakere.'}</small>
+            <SelectField<BusinessType> label="Virksomhetstype" value={form.businessType ?? 'privat'}
+              onChange={(v) => setForm((f) => ({ ...f, businessType: v, accountType: v === 'privat' ? 'private' : 'business' }))}
+              options={BUSINESS_TYPES.map((b) => ({ value: b, label: BUSINESS_TYPE_NAMES[b] }))} />
+            <small className="muted">{form.accountType === 'business' ? 'Bedrifter kan invitere flere brukere og får priser eks. mva. Meny og ord tilpasses virksomheten.' : 'For hjemmebruk.'}</small>
           </div>
           <TextField label="Fullt navn" value={form.fullName} onChange={(v) => set('fullName', v)} />
           {errors.fullName && <small className="error">{errors.fullName}</small>}

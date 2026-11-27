@@ -35,7 +35,7 @@ export function TermsPage() {
       <PageHeader title="Brukervilkår" />
       <Notice tone="warn">Utkast – må fullføres og kvalitetssikres før lansering.</Notice>
       <Card title="Tjenesten" icon={FileText}>
-        <p>Rett i lomma – Bakekalkulator gir estimater for strøm- og ingredienskostnader. Beregningene er veiledende og avhenger av opplysningene du legger inn og offentlige satser som kan endres.</p>
+        <p>Rett i lomma – Matkalkulator gir estimater for strøm- og ingredienskostnader. Beregningene er veiledende og avhenger av opplysningene du legger inn og offentlige satser som kan endres.</p>
         <p>Nye kunder får 30 dagers prøveperiode med Pro. Etter prøveperioden gjelder Free med mindre et betalt abonnement er aktivt. Dataene dine slettes ikke når prøveperioden går ut.</p>
         <p>[Pris, betaling, oppsigelse, ansvarsbegrensning, endringer i vilkår og kontaktinformasjon fylles inn.]</p>
       </Card>

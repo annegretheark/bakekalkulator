@@ -1,13 +1,14 @@
 // Norsk bokmål. Nye språk legges til som egne filer med samme nøkler (se index.ts).
 export const nb = {
   'app.name': 'Rett i lomma',
-  'app.subtitle': 'Bakekalkulator',
+  'app.subtitle': 'Matkalkulator',
 
   'nav.overview': 'Oversikt',
   'nav.calculator': 'Bakekalkulator',
   'nav.prices': 'Strømpriser',
   'nav.recipes': 'Mine oppskrifter',
   'nav.ingredients': 'Ingredienser',
+  'nav.equipment': 'Utstyr',
   'nav.history': 'Bakehistorikk',
   'nav.sales': 'Salg og fortjeneste',
   'nav.settings': 'Innstillinger',

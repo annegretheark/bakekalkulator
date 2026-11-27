@@ -4,7 +4,11 @@ import { formatKwh, formatMoney, formatOre } from '../utils/format'
 import { useFormat } from '../hooks/useData'
 import { StatCard } from './ui'
 
-export function ResultCards({ result, pricePerKwh, priceSource, count }: { result: BakeResult; pricePerKwh: number; priceSource: string; count: number }) {
+export function ResultCards({ result, pricePerKwh, priceSource, count, unit = 'stk', perUnit = 'stk', showSavings = true }: {
+  result: BakeResult; pricePerKwh: number; priceSource: string; count: number
+  /** «stk» eller «porsjoner» (flertall) og «stk»/«porsjon» (entall). */
+  unit?: string; perUnit?: string; showSavings?: boolean
+}) {
   const f = useFormat()
   const s = result.savings
   return (
@@ -12,15 +16,15 @@ export function ResultCards({ result, pricePerKwh, priceSource, count }: { resul
       <StatCard icon={Zap} label="Strømforbruk" value={formatKwh(result.energy.totalKwh, f.locale)} sub={result.energy.measured ? 'Målt forbruk' : 'Estimert'} />
       <StatCard icon={Coins} label="Strømkostnad" value={formatMoney(result.electricityCost, f)} sub={`${formatOre(pricePerKwh, f.locale)} · ${priceSource}`} />
       <StatCard icon={ShoppingBasket} label="Ingredienser" value={formatMoney(result.ingredientCost, f)} sub={result.missingIngredientCosts ? `${result.missingIngredientCosts} linje(r) uten pris` : result.ingredientLines.length ? `${result.ingredientLines.length} ingredienser` : 'Ingen oppskrift valgt'} tone={result.missingIngredientCosts ? 'amber' : 'default'} />
-      <StatCard icon={Wallet} label="Total bakekostnad" value={formatMoney(result.totalCost, f)} sub={`${count} stk`} />
-      <StatCard icon={Croissant} label="Kostnad per stk" value={formatMoney(result.costPerItem, f)} tone="green" />
-      <StatCard
+      <StatCard icon={Wallet} label="Total kostnad" value={formatMoney(result.totalCost, f)} sub={`${count} ${unit}`} />
+      <StatCard icon={Croissant} label={`Kostnad per ${perUnit}`} value={formatMoney(result.costPerItem, f)} tone="green" />
+      {showSavings && <StatCard
         icon={PiggyBank}
         label="Besparelse vs. butikk"
         value={s ? formatMoney(s.perBake, f) : '–'}
         tone={s ? (s.perBake >= 0 ? 'green' : 'red') : 'default'}
         sub={s ? <>{formatMoney(s.perMonth, f, 0)}/mnd · {formatMoney(s.perYear, f, 0)}/år</> : 'Angi butikkpris for å se besparelse'}
-      />
+      />}
     </div>
   )
 }

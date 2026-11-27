@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Database, Download, Globe, Repeat, RotateCcw, Sparkles, Upload, Zap } from 'lucide-react'
+import { Building2, Database, Download, Globe, Repeat, RotateCcw, Sparkles, Upload, Zap } from 'lucide-react'
 import type { AppData } from '../types'
 import { useData } from '../hooks/useData'
 import { Card, Notice, NumberField, PageHeader, SelectField } from '../components/ui'
@@ -8,20 +8,24 @@ import { SUPPORTED_LOCALES } from '../locales'
 import { useAuth } from '../hooks/useAuth'
 import { PLAN_NAMES } from '../lib/plans'
 import { navigate } from '../hooks/useRoute'
+import { BUSINESS_ORG_TYPES, BUSINESS_TYPE_NAMES, businessProfile } from '../lib/businessTypes'
+import { BUSINESS_TYPES, type BusinessType } from '../types'
 
 export function SettingsPage() {
-  const { data, saveSettings, replaceAll } = useData()
+  const { data, saveSettings, replaceAll, saveBusinessType } = useData()
   const s = data.settings
   const auth = useAuth()
   const cloud = !!auth.user && !!auth.activeOrg
   const fileRef = useRef<HTMLInputElement>(null)
+  const profile = businessProfile(s.businessType)
+  const businessReadOnly = cloud && auth.activeOrg?.role === 'member'
   const [msg, setMsg] = useState<{ tone: 'info' | 'error'; text: string } | null>(null)
 
   const exportData = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `bakekalkulator-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `matkalkulator-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(a.href)
   }
@@ -44,9 +48,25 @@ export function SettingsPage() {
       {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
       <div className="grid-2">
         <div className="stack">
-          <Card title="Bakefrekvens" icon={Repeat}>
+          <Card title="Virksomhet" icon={Building2}>
+            {cloud && auth.activeOrg?.type === 'private' ? (
+              <p className="muted">Kontoen er registrert som <strong>privatperson</strong>. Virksomhetstype kan velges for bedriftskontoer.</p>
+            ) : (
+              <>
+                <div className="form-grid">
+                  <SelectField<BusinessType> label="Virksomhetstype" value={s.businessType}
+                    onChange={(v) => { if (!businessReadOnly) saveBusinessType(v) }}
+                    options={(cloud ? BUSINESS_ORG_TYPES : BUSINESS_TYPES).map((b) => ({ value: b, label: BUSINESS_TYPE_NAMES[b] }))} />
+                </div>
+                <p className="muted small">
+                  {businessReadOnly ? 'Bare eier eller administrator kan endre virksomhetstype.' : 'Meny, ord og standardvalg for nye oppskrifter tilpasses virksomheten. Ingen data endres.'}
+                </p>
+              </>
+            )}
+          </Card>
+          <Card title={profile.productionWord === 'baking' ? 'Bakefrekvens' : 'Produksjonsfrekvens'} icon={Repeat}>
             <div className="form-grid">
-              <NumberField label="Antall bakinger per måned" value={s.bakesPerMonth} max={100} onChange={(v) => saveSettings({ ...s, bakesPerMonth: v })} hint="Brukes til månedlig og årlig besparelse." />
+              <NumberField label={`Antall ${profile.productionWordPlural} per måned`} value={s.bakesPerMonth} max={100} onChange={(v) => saveSettings({ ...s, bakesPerMonth: v })} hint="Brukes til månedlig og årlig besparelse." />
             </div>
           </Card>
           <Card title="Strømpris" icon={Zap}>

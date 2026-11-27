@@ -3,6 +3,7 @@ import { Coins, Croissant, History, PiggyBank, Plus, Trash2, TrendingUp, Zap } f
 import { BAKE_TYPES, type BakeLog, type BakeType } from '../types'
 import { useData, useFormat, useT } from '../hooks/useData'
 import { useBakeResult } from '../hooks/useBakeResult'
+import { useBusiness } from '../hooks/useBusiness'
 import { Card, EmptyState, NumberField, PageHeader, Segmented, SelectField, StatCard, TextField } from '../components/ui'
 import { filterByPeriod, summarize, type StatPeriod } from '../utils/stats'
 import { formatDate, formatKwh, formatMoney, formatOre, toLocalDateKey, uid } from '../utils/format'
@@ -12,6 +13,7 @@ export function HistoryPage() {
   const f = useFormat()
   const { data, draft, addLog, deleteLog } = useData()
   const { result, pricePerKwh } = useBakeResult()
+  const { profile } = useBusiness()
   const [period, setPeriod] = useState<StatPeriod>('month')
   const [form, setForm] = useState<(BakeLog & { dateKey: string }) | null>(null)
 
@@ -41,11 +43,11 @@ export function HistoryPage() {
 
   return (
     <>
-      <PageHeader title="Bakehistorikk" description="Kostnadene lagres som de var da du bakte – senere prisendringer påvirker ikke historikken."
-        actions={<button className="btn primary" onClick={startNew}><Plus size={18} /> Registrer baking</button>} />
+      <PageHeader title={profile.historyName} description="Kostnadene lagres som de var da de ble registrert – senere prisendringer påvirker ikke historikken."
+        actions={<button className="btn primary" onClick={startNew}><Plus size={18} /> Registrer {profile.productionWord}</button>} />
 
       {form && (
-        <Card title="Registrer gjennomført baking" icon={History}>
+        <Card title={`Registrer gjennomført ${profile.productionWord}`} icon={History}>
           <p className="muted small">Forhåndsutfylt fra kalkulatoren. Juster ved behov.</p>
           <div className="form-grid">
             <TextField label="Dato" type="date" value={form.dateKey} onChange={(v) => setForm({ ...form, dateKey: v })} />

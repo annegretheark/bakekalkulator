@@ -1,31 +1,44 @@
 import { useState } from 'react'
-import { ArrowLeft, BookOpen, Calculator, Clock, Copy, Pencil, Plus, Scale, ScanText, Trash2, Wheat } from 'lucide-react'
-import { BAKE_TYPES, UNITS, type BakeType, type Recipe, type Unit } from '../types'
+import { ArrowLeft, BookOpen, Calculator, Clock, Copy, Gauge, Pencil, Plus, Scale, ScanText, Trash2, Wheat } from 'lucide-react'
+import { BAKE_TYPES, RECIPE_CATEGORIES, UNITS, type BakeType, type Recipe, type RecipeCategory, type Unit, type YieldUnit } from '../types'
 import { useData, useFormat, useT } from '../hooks/useData'
 import { usePriceData } from '../hooks/usePriceData'
-import { Card, EmptyState, Notice, NumberField, PageHeader, SelectField, TextField } from '../components/ui'
+import { useBusiness } from '../hooks/useBusiness'
+import { Card, EmptyState, Notice, NumberField, PageHeader, Segmented, SelectField, TextField } from '../components/ui'
+import { EquipmentUsesEditor } from '../components/EquipmentUsesEditor'
 import { defaultEnergyInput } from '../lib/defaults'
+import { RECIPE_CATEGORY_NAMES, yieldWord, type BusinessProfile } from '../lib/businessTypes'
 import { computeBake } from '../utils/bake'
 import { formatMoney, formatNumber, uid } from '../utils/format'
 import { isCompatible } from '../utils/units'
+import { bakeTypeForCategory, costPerKg, scaledWeightG, weightPerUnitG } from '../utils/portions'
 import { navigate } from '../hooks/useRoute'
 import { RecipeScanPanel } from '../components/ScanPanels'
 
-const newRecipe = (): Recipe => {
+const newRecipe = (p: BusinessProfile): Recipe => {
   const now = new Date().toISOString()
-  return { id: uid(), name: '', type: 'brod', yieldCount: 1, ingredients: [], steps: [''], riseMinutes: 60, bakeMinutes: 45, storePricePerItem: 0, notes: '', energy: defaultEnergyInput(), createdAt: now, updatedAt: now }
+  return {
+    id: uid(), name: '', type: bakeTypeForCategory(p.defaultCategory, 'brod'), category: p.defaultCategory,
+    yieldCount: p.defaultYieldUnit === 'porsjoner' ? 4 : 1, yieldUnit: p.defaultYieldUnit, prepMinutes: 0, finishedWeightG: null,
+    ingredients: [], steps: [''], riseMinutes: p.defaultCategory === 'brod_bakervarer' ? 60 : 0, bakeMinutes: p.defaultCategory === 'brod_bakervarer' ? 45 : 0,
+    storePricePerItem: 0, notes: '', energy: defaultEnergyInput(), createdAt: now, updatedAt: now,
+  }
 }
+
+const BAKERY_TYPES: BakeType[] = BAKE_TYPES.filter((b) => b !== 'pizza' && b !== 'annet')
 
 export function RecipesPage() {
   const t = useT()
   const f = useFormat()
   const { data, upsertRecipe, deleteRecipe, setDraft } = useData()
+  const { profile } = useBusiness()
   const prices = usePriceData()
   const [editing, setEditing] = useState<Recipe | null>(null)
   const [viewing, setViewing] = useState<string | null>(null)
   const [scaleTo, setScaleTo] = useState<number | null>(null)
   const [scanning, setScanning] = useState(false)
   const [scanInfo, setScanInfo] = useState<string | null>(null)
+  const [filter, setFilter] = useState<RecipeCategory | ''>('')
   const price = prices.todayAverage ?? prices.currentTotal ?? data.settings.price.manualTotalKrPerKwh
 
   const cost = (r: Recipe, count = r.yieldCount) => computeBake({
@@ -49,6 +62,9 @@ export function RecipesPage() {
     const set = (p: Partial<Recipe>) => setEditing({ ...e, ...p })
     const valid = e.name.trim() && e.yieldCount > 0 && e.ingredients.every((i) => i.ingredientId && i.amount >= 0)
     const live = cost(e)
+    const word = yieldWord(e.yieldUnit)
+    const perKg = costPerKg(live.totalCost, scaledWeightG(e, e.yieldCount))
+    const isBakery = e.category === 'brod_bakervarer'
     return (
       <>
         <PageHeader title={data.recipes.some((r) => r.id === e.id) ? 'Rediger oppskrift' : 'Ny oppskrift'}
@@ -58,12 +74,33 @@ export function RecipesPage() {
           <div className="stack">
             <Card title="Grunninfo" icon={BookOpen}>
               <div className="form-grid">
-                <TextField label="Navn" required value={e.name} onChange={(v) => set({ name: v })} placeholder="F.eks. Grove brød" />
-                <SelectField<BakeType> label="Type" value={e.type} onChange={(v) => set({ type: v })} options={BAKE_TYPES.map((b) => ({ value: b, label: t(`bakeType.${b}`) }))} />
-                <NumberField label="Gir antall" value={e.yieldCount} integer min={1} onChange={(v) => set({ yieldCount: v })} suffix="stk" />
+                <TextField label="Navn" required value={e.name} onChange={(v) => set({ name: v })} placeholder="F.eks. Grove brød eller Lasagne" />
+                <SelectField<RecipeCategory> label="Kategori" value={e.category} onChange={(v) => set({ category: v, type: bakeTypeForCategory(v, e.type) })}
+                  options={RECIPE_CATEGORIES.map((c) => ({ value: c, label: RECIPE_CATEGORY_NAMES[c] }))} />
+                {isBakery && (
+                  <SelectField<BakeType> label="Type bakervare" value={BAKERY_TYPES.includes(e.type) ? e.type : 'brod'} onChange={(v) => set({ type: v })}
+                    options={BAKERY_TYPES.map((b) => ({ value: b, label: t(`bakeType.${b}`) }))} />
+                )}
+                <NumberField label="Gir antall" value={e.yieldCount} integer min={1} onChange={(v) => set({ yieldCount: v })} suffix={word} />
+                <div className="field">
+                  <span className="label">Antall regnes i</span>
+                  <Segmented<YieldUnit> label="Antall regnes i" value={e.yieldUnit} onChange={(v) => set({ yieldUnit: v })}
+                    options={[{ value: 'stk', label: 'Stk' }, { value: 'porsjoner', label: 'Porsjoner' }]} />
+                </div>
+                <NumberField label="Ferdig vekt, hele oppskriften" value={e.finishedWeightG ?? 0} onChange={(v) => set({ finishedWeightG: v > 0 ? v : null })} suffix="g" max={10000000}
+                  hint="Valgfritt. Gir kostnad per kilo og vekt per porsjon." />
+              </div>
+            </Card>
+
+            <Card title="Tider" icon={Clock}>
+              <div className="form-grid">
+                <NumberField label="Tilberedningstid" value={e.prepMinutes} onChange={(v) => set({ prepMinutes: v })} suffix="min" max={10080} hint="Aktiv tid, f.eks. kutting og forming" />
                 <NumberField label="Hevetid" value={e.riseMinutes} onChange={(v) => set({ riseMinutes: v })} suffix="min" max={2880} />
-                <NumberField label="Steketid" value={e.bakeMinutes} onChange={(v) => set({ bakeMinutes: v, energy: { ...e.energy, bakeMinutes: v } })} suffix="min" max={600} />
-                <NumberField label="Butikkpris tilsvarende" value={e.storePricePerItem} onChange={(v) => set({ storePricePerItem: v })} suffix="kr/stk" />
+                <NumberField label="Steke-/koketid" value={e.bakeMinutes} onChange={(v) => set({ bakeMinutes: v, energy: { ...e.energy, bakeMinutes: v } })} suffix="min" max={600} />
+                <NumberField label="Temperatur" value={e.energy.temperatureC} onChange={(v) => set({ energy: { ...e.energy, temperatureC: v } })} suffix="°C" max={500} />
+                {profile.showStorePrice && (
+                  <NumberField label="Butikkpris tilsvarende" value={e.storePricePerItem} onChange={(v) => set({ storePricePerItem: v })} suffix={`kr/${e.yieldUnit === 'porsjoner' ? 'porsjon' : 'stk'}`} />
+                )}
               </div>
             </Card>
 
@@ -90,6 +127,10 @@ export function RecipesPage() {
               <button className="btn ghost" disabled={data.ingredients.length === 0} onClick={() => set({ ingredients: [...e.ingredients, { id: uid(), ingredientId: data.ingredients[0]?.id ?? '', amount: 100, unit: data.ingredients[0]?.unit === 'kg' ? 'g' : data.ingredients[0]?.unit ?? 'g' }] })}><Plus size={16} /> Legg til ingrediens</button>
             </Card>
 
+            <Card title="Utstyr og strøm" icon={Gauge}>
+              <EquipmentUsesEditor energy={e.energy} onChange={(energy) => set({ energy })} equipment={data.equipment} count={e.yieldCount} unitWord={word} />
+            </Card>
+
             <Card title="Fremgangsmåte" icon={BookOpen}>
               <ol className="steps-edit">
                 {e.steps.map((s, i) => (
@@ -110,11 +151,12 @@ export function RecipesPage() {
                 <dt>Ingredienser</dt><dd>{formatMoney(live.ingredientCost, f)}</dd>
                 <dt>Strøm (estimert)</dt><dd>{formatMoney(live.electricityCost, f)}</dd>
                 <dt>Totalt</dt><dd><strong>{formatMoney(live.totalCost, f)}</strong></dd>
-                <dt>Per stk</dt><dd><strong>{formatMoney(live.costPerItem, f)}</strong></dd>
-                {live.savings && <><dt>Spart per baking</dt><dd>{formatMoney(live.savings.perBake, f)}</dd></>}
+                <dt>Per {yieldWord(e.yieldUnit, 1)}</dt><dd><strong>{formatMoney(live.costPerItem, f)}</strong></dd>
+                {perKg !== null && <><dt>Per kilo</dt><dd>{formatMoney(perKg, f)}</dd></>}
+                {profile.showStorePrice && live.savings && <><dt>Spart per {profile.productionWord}</dt><dd>{formatMoney(live.savings.perBake, f)}</dd></>}
               </dl>
               {live.missingIngredientCosts > 0 && <Notice tone="warn">{live.missingIngredientCosts} ingrediens(er) kan ikke prisberegnes.</Notice>}
-              <p className="muted small">Strøm estimeres med oppskriftens ovnsoppsett og dagens snittpris. Ovnsoppsettet justeres og lagres fra kalkulatoren.</p>
+              <p className="muted small">Strøm estimeres med oppskriftens utstyr og dagens snittpris.</p>
             </Card>
             <div className="actions">
               <button className="btn primary" disabled={!valid} onClick={async () => { setScanInfo(null); await upsertRecipe({ ...e, name: e.name.trim(), steps: e.steps.filter((s) => s.trim()), updatedAt: new Date().toISOString() }); setEditing(null); setViewing(e.id) }}>Lagre oppskrift</button>
@@ -131,9 +173,13 @@ export function RecipesPage() {
   if (shown) {
     const count = scaleTo ?? shown.yieldCount
     const res = cost(shown, count)
+    const word = yieldWord(shown.yieldUnit, count)
+    const weight = scaledWeightG(shown, count)
+    const perKg = costPerKg(res.totalCost, weight)
+    const perUnitWeight = weightPerUnitG(shown)
     return (
       <>
-        <PageHeader title={shown.name} description={`${t(`bakeType.${shown.type}`)} · gir ${shown.yieldCount} stk`}
+        <PageHeader title={shown.name} description={`${RECIPE_CATEGORY_NAMES[shown.category]} · gir ${shown.yieldCount} ${yieldWord(shown.yieldUnit, shown.yieldCount)}`}
           actions={<>
             <button className="btn ghost" onClick={() => { setViewing(null); setScaleTo(null) }}><ArrowLeft size={16} /> Alle oppskrifter</button>
             <button className="btn ghost" onClick={() => setEditing(structuredClone(shown))}><Pencil size={16} /> Rediger</button>
@@ -142,7 +188,7 @@ export function RecipesPage() {
         <div className="grid-2 wide-left">
           <div className="stack">
             <Card title="Ingredienser" icon={Wheat} actions={
-              <div className="scale-ctl"><Scale size={16} aria-hidden /><NumberField label="Skaler til" value={count} integer min={1} max={1000} onChange={(v) => setScaleTo(v)} suffix="stk" /></div>
+              <div className="scale-ctl"><Scale size={16} aria-hidden /><NumberField label="Skaler til" value={count} integer min={1} max={100000} onChange={(v) => setScaleTo(v)} suffix={word} /></div>
             }>
               <table className="clean">
                 <thead><tr><th>Ingrediens</th><th className="num">Mengde</th><th className="num">Kostnad</th></tr></thead>
@@ -166,15 +212,21 @@ export function RecipesPage() {
           <div className="stack">
             <Card title="Kostnad" icon={Calculator}>
               <dl className="kv">
-                <dt><Clock size={14} /> Hevetid</dt><dd>{shown.riseMinutes} min</dd>
-                <dt><Clock size={14} /> Steketid</dt><dd>{shown.bakeMinutes} min</dd>
+                {shown.prepMinutes > 0 && <><dt><Clock size={14} /> Tilberedning</dt><dd>{shown.prepMinutes} min</dd></>}
+                {shown.riseMinutes > 0 && <><dt><Clock size={14} /> Hevetid</dt><dd>{shown.riseMinutes} min</dd></>}
+                <dt><Clock size={14} /> Steke-/koketid</dt><dd>{shown.bakeMinutes} min{shown.energy.temperatureC ? ` · ${shown.energy.temperatureC} °C` : ''}</dd>
                 <dt>Ingredienser</dt><dd>{formatMoney(res.ingredientCost, f)}</dd>
                 <dt>Strøm</dt><dd>{formatMoney(res.electricityCost, f)}</dd>
-                <dt>Totalt</dt><dd><strong>{formatMoney(res.totalCost, f)}</strong></dd>
-                <dt>Per stk</dt><dd><strong>{formatMoney(res.costPerItem, f)}</strong></dd>
-                <dt>Butikkpris</dt><dd>{shown.storePricePerItem ? formatMoney(shown.storePricePerItem, f) : '–'}</dd>
-                {res.savings && <><dt>Spart per baking</dt><dd className="pos">{formatMoney(res.savings.perBake, f)}</dd></>}
+                <dt>Totalt ({count} {word})</dt><dd><strong>{formatMoney(res.totalCost, f)}</strong></dd>
+                <dt>Per {yieldWord(shown.yieldUnit, 1)}</dt><dd><strong>{formatMoney(res.costPerItem, f)}</strong></dd>
+                {perKg !== null && <><dt>Per kilo</dt><dd>{formatMoney(perKg, f)}</dd></>}
+                {perUnitWeight !== null && <><dt>Vekt per {yieldWord(shown.yieldUnit, 1)}</dt><dd>{formatNumber(perUnitWeight, 0, f.locale)} g</dd></>}
+                {profile.showStorePrice && <><dt>Butikkpris</dt><dd>{shown.storePricePerItem ? formatMoney(shown.storePricePerItem, f) : '–'}</dd></>}
+                {profile.showStorePrice && res.savings && <><dt>Spart per {profile.productionWord}</dt><dd className="pos">{formatMoney(res.savings.perBake, f)}</dd></>}
               </dl>
+              {shown.energy.energySource === 'equipment' && (shown.energy.equipmentUses?.length ?? 0) > 0 && (
+                <p className="muted small">Utstyr: {shown.energy.equipmentUses!.map((u) => u.name).join(', ')}</p>
+              )}
             </Card>
           </div>
         </div>
@@ -183,12 +235,14 @@ export function RecipesPage() {
   }
 
   // ---------- Liste ----------
+  const usedCategories = RECIPE_CATEGORIES.filter((c) => data.recipes.some((r) => r.category === c))
+  const list = filter ? data.recipes.filter((r) => r.category === filter) : data.recipes
   return (
     <>
       <PageHeader title="Mine oppskrifter" description="Kostnadene beregnes automatisk fra ingrediensregisteret og dagens strømpris."
         actions={<>
           <button className="btn ghost" onClick={() => setScanning(true)}><ScanText size={18} /> Skann oppskrift</button>
-          <button className="btn primary" onClick={() => setEditing(newRecipe())}><Plus size={18} /> Ny oppskrift</button>
+          <button className="btn primary" onClick={() => setEditing(newRecipe(profile))}><Plus size={18} /> Ny oppskrift</button>
         </>} />
       {scanning && (
         <RecipeScanPanel onCancel={() => setScanning(false)} onDone={(r, created) => {
@@ -197,23 +251,30 @@ export function RecipesPage() {
           setEditing(r)
         }} />
       )}
+      {usedCategories.length > 1 && (
+        <div className="form-grid">
+          <SelectField<RecipeCategory | ''> label="Vis kategori" value={filter} onChange={setFilter}
+            options={[{ value: '', label: 'Alle kategorier' }, ...usedCategories.map((c) => ({ value: c, label: RECIPE_CATEGORY_NAMES[c] }))]} />
+        </div>
+      )}
       {data.recipes.length === 0 ? (
-        <EmptyState icon={BookOpen} title="Ingen oppskrifter ennå" text="Lag din første oppskrift, så ser du hva hver bakst faktisk koster."
-          action={<button className="btn primary" onClick={() => setEditing(newRecipe())}><Plus size={18} /> Ny oppskrift</button>} />
+        <EmptyState icon={BookOpen} title="Ingen oppskrifter ennå" text="Lag din første oppskrift, så ser du hva hver rett eller bakst faktisk koster."
+          action={<button className="btn primary" onClick={() => setEditing(newRecipe(profile))}><Plus size={18} /> Ny oppskrift</button>} />
       ) : (
         <div className="cards-grid">
-          {data.recipes.map((r) => {
+          {list.map((r) => {
             const res = cost(r)
+            const per = yieldWord(r.yieldUnit, 1)
             return (
               <article key={r.id} className="recipe-card">
                 <button className="recipe-main" onClick={() => setViewing(r.id)}>
-                  <span className="pill">{t(`bakeType.${r.type}`)}</span>
+                  <span className="pill">{RECIPE_CATEGORY_NAMES[r.category]}</span>
                   <h3>{r.name}</h3>
-                  <p className="muted small">{r.yieldCount} stk · {r.ingredients.length} ingredienser · {r.riseMinutes + r.bakeMinutes} min</p>
+                  <p className="muted small">{r.yieldCount} {yieldWord(r.yieldUnit, r.yieldCount)} · {r.ingredients.length} ingredienser · {r.prepMinutes + r.riseMinutes + r.bakeMinutes} min</p>
                   <div className="recipe-figures">
                     <span><small>Totalt</small><strong>{formatMoney(res.totalCost, f)}</strong></span>
-                    <span><small>Per stk</small><strong>{formatMoney(res.costPerItem, f)}</strong></span>
-                    {res.savings && <span><small>Spart</small><strong className="pos">{formatMoney(res.savings.perBake, f, 0)}</strong></span>}
+                    <span><small>Per {per}</small><strong>{formatMoney(res.costPerItem, f)}</strong></span>
+                    {profile.showStorePrice && res.savings && <span><small>Spart</small><strong className="pos">{formatMoney(res.savings.perBake, f, 0)}</strong></span>}
                   </div>
                 </button>
                 <div className="recipe-actions">

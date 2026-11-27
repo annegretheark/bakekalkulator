@@ -1,9 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { AppData, AppSettings, BakeLog, Id, Ingredient, Plan, Recipe } from '../../types'
+import type { AppData, AppSettings, BakeLog, BusinessType, EquipmentItem, Id, Ingredient, Plan, Recipe } from '../../types'
 import type { DataRepository } from './repository'
 import {
-  buildAppData, dbErrorMessage, historyToRow, ingredientToRpc, recipeToRpc,
-  type HistoryRow, type IngredientRow, type RecipeRow, type UserSettingsRow,
+  buildAppData, dbErrorMessage, equipmentToRpc, historyToRow, ingredientToRpc, recipeToRpc,
+  type EquipmentRow, type HistoryRow, type IngredientRow, type RecipeRow, type UserSettingsRow,
 } from './mappers'
 
 /**
@@ -30,20 +30,25 @@ export class SupabaseRepository implements DataRepository {
 
   async load(): Promise<AppData> {
     const org = this.organizationId
-    const [user, price, ingredients, recipes, history] = await Promise.all([
+    const [user, price, ingredients, recipes, history, equipment, organization] = await Promise.all([
       this.client.from('user_settings').select('locale, currency, bakes_per_month').eq('user_id', this.userId).maybeSingle(),
       this.client.from('electricity_settings').select('settings').eq('organization_id', org).maybeSingle(),
       this.client.from('ingredients').select('*').eq('organization_id', org).order('name'),
       this.client.from('recipes').select('*, recipe_ingredients(id, ingredient_id, position, amount, unit)').eq('organization_id', org).order('created_at'),
       this.client.from('baking_history').select('*').eq('organization_id', org).order('baked_at', { ascending: false }).limit(1000),
+      this.client.from('equipment').select('*').eq('organization_id', org).order('created_at'),
+      this.client.from('organizations').select('business_type').eq('id', org).maybeSingle(),
     ])
     return buildAppData({
       user: this.check(user) as UserSettingsRow | null,
       price: (this.check(price) as { settings: AppSettings['price'] } | null)?.settings ?? null,
       plan: this.plan,
+      // Tåler at fase 1-migrasjonen ikke er kjørt ennå (kolonnen mangler): da brukes standard
+      businessType: organization.error ? null : (organization.data as { business_type?: string } | null)?.business_type ?? null,
       ingredients: this.check(ingredients) as IngredientRow[],
       recipes: this.check(recipes) as RecipeRow[],
       history: this.check(history) as HistoryRow[],
+      equipment: this.check(equipment) as EquipmentRow[],
     })
   }
 
@@ -82,6 +87,22 @@ export class SupabaseRepository implements DataRepository {
 
   async deleteLog(id: Id): Promise<void> {
     this.check(await this.client.from('baking_history').delete().eq('id', id).eq('organization_id', this.organizationId))
+  }
+
+  async upsertEquipment(item: EquipmentItem): Promise<void> {
+    this.check(await this.client.rpc('save_equipment', { org: this.organizationId, item: equipmentToRpc(item) }))
+  }
+
+  async deleteEquipment(id: Id): Promise<void> {
+    this.check(await this.client.from('equipment').delete().eq('id', id).eq('organization_id', this.organizationId))
+  }
+
+  async saveBusinessType(t: BusinessType): Promise<void> {
+    const rows = this.check(await this.client.from('organizations')
+      .update({ business_type: t })
+      .eq('id', this.organizationId)
+      .select('id'))
+    if (!rows || rows.length === 0) throw new Error('Bare eier eller administrator kan endre virksomhetstype.')
   }
 
   async replaceAll(): Promise<void> {

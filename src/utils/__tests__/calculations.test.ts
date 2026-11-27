@@ -163,7 +163,7 @@ describe('ingredienskostnader', () => {
 })
 
 const recipe: Recipe = {
-  id: 'r', name: 'Test', type: 'brod', yieldCount: 3, steps: [], riseMinutes: 0, bakeMinutes: 0,
+  id: 'r', name: 'Test', type: 'brod', category: 'brod_bakervarer', yieldCount: 3, yieldUnit: 'stk', prepMinutes: 0, finishedWeightG: null, steps: [], riseMinutes: 0, bakeMinutes: 0,
   storePricePerItem: 40, notes: '', energy: energyInput(), createdAt: '', updatedAt: '',
   ingredients: [{ id: 'a', ingredientId: 'mel', amount: 1500, unit: 'g' }],
 }

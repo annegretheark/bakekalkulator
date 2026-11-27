@@ -5,6 +5,7 @@ import { useData, useFormat } from '../hooks/useData'
 import { useScanAllowed } from '../hooks/useScanAllowed'
 import { navigate } from '../hooks/useRoute'
 import { defaultEnergyInput } from '../lib/defaults'
+import { businessProfile } from '../lib/businessTypes'
 import { recognizeText, type OcrProgress } from '../services/scan'
 import { matchIngredient, packageUnitFor, parseReceiptText, parseRecipeText } from '../utils/scanParse'
 import { formatMoney, toLocalDateKey, uid } from '../utils/format'
@@ -127,6 +128,8 @@ export function RecipeScanPanel({ onDone, onCancel }: { onDone: (r: Recipe, crea
       if (parsed.temperatureC) energy.temperatureC = parsed.temperatureC
       onDone({
         id: uid(), name: name.trim(), type: 'brod', yieldCount: Math.max(1, Math.round(yieldCount)), ingredients,
+        category: businessProfile(data.settings.businessType).defaultCategory, yieldUnit: businessProfile(data.settings.businessType).defaultYieldUnit,
+        prepMinutes: 0, finishedWeightG: null,
         steps: parsed.steps.length ? parsed.steps : [''], riseMinutes: 60, bakeMinutes: energy.bakeMinutes,
         storePricePerItem: 0, notes: 'Skannet fra bilde – kontroller mengder og steg.', energy, createdAt: now, updatedAt: now,
       }, created)

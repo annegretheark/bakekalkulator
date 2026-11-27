@@ -1,6 +1,8 @@
-# Rett i lomma – Bakekalkulator
+# Rett i lomma – Matkalkulator
 
-Webapplikasjon som beregner hva hjemmebakst faktisk koster i strøm og ingredienser. Den finner også billigste tidspunkt å bake, sammenligner med butikkpris og regner på salg og fortjeneste.
+Webapplikasjon som beregner hva mat og bakst faktisk koster i strøm, råvarer og utstyr – for privatpersoner, bakerier, restauranter, kafeer, catering, kantiner og matprodusenter. Den finner også billigste tidspunkt å produsere, sammenligner med butikkpris og regner på salg og fortjeneste.
+
+Appen het tidligere Bakekalkulator. Domene (`bakekalkulator.rettilomma.com`), repository og Worker-navn er uendret. Videreutviklingen følger [docs/IMPLEMENTERINGSPLAN.md](docs/IMPLEMENTERINGSPLAN.md).
 
 Bygd med React 19, Vite, TypeScript, lucide-react og Supabase (Auth + PostgreSQL med RLS). Grensesnittet er på norsk (bokmål) og klargjort for flere språk og valutaer.
 
@@ -35,13 +37,14 @@ npm run deploy   # bygger med .env.local og publiserer (cf deploy)
 | Side | Innhold |
 |---|---|
 | Oversikt | Strømpris nå, billigste bakevindu, gjeldende kalkyle, totalstatistikk, prisgraf og siste bakinger |
-| Bakekalkulator | Én eller flere ovner, forvarming, steking, omganger, kjøkkenmaskin, annet utstyr og målt forbruk. Kostnad per del, ingredienser, resultatkort og «bak flere samtidig» |
+| Kalkulator (Bakekalkulator for bakerier og privatpersoner) | Manuelt oppsett eller utstyr fra registeret. Én eller flere ovner, forvarming, steking, omganger, kjøkkenmaskin, annet utstyr og målt forbruk. Kostnad per del, ingredienser, resultatkort og «bak flere samtidig» |
 | Strømpriser | Kundetype (bedrift/privat), prisområde NO1–NO5, avtaletype (spot, Norgespris for privat, fastpris, manuell), graf, prisoppbygging og konfigurerbare tillegg |
-| Mine oppskrifter | Opprette, redigere, kopiere og slette. Ingredienser, fremgangsmåte, hevetid, steketid, butikkpris og skalering. **Skann oppskrift** fra bilde (Pro) |
+| Mine oppskrifter | 14 kategorier, stk eller porsjoner, tilberedningstid, steke-/koketid, temperatur, ferdig vekt, utstyr fra registeret. Kostnad per porsjon og per kilo, skalering. **Skann oppskrift** fra bilde (Pro) |
 | Ingredienser | Register med kategori, pakning, enhet, pris, butikk og prisdato. **Skann kvittering** og **skann strekkode** (Pro) |
-| Bakehistorikk | Lagrede bakinger som øyeblikksbilder, med statistikk for uke, måned og år |
+| Utstyr | Utstyrsregister med 16 typer og maler (merket som anslag), effekt i W eller kW, forvarming, drift, målt forbruk, kapasitet. Kjøl, frys og ventilasjon vises som felles driftskostnad per måned |
+| Bakehistorikk / Produksjonshistorikk | Lagrede bakinger og produksjoner som øyeblikksbilder, med statistikk for uke, måned og år |
 | Salg og fortjeneste | Kostnader, svinn, arbeid, mva, margin, påslag og anbefalt pris |
-| Innstillinger | Bakefrekvens, reservepris, språk/valuta, eksport/import og tilbakestilling |
+| Innstillinger | Virksomhetstype (tilpasser meny og ord), frekvens, reservepris, språk/valuta, eksport/import og tilbakestilling |
 
 ### Skanning (Pro)
 
@@ -124,6 +127,7 @@ Ligger i `supabase/migrations/` og kjøres i rekkefølge:
 | `20261126120100_functions.sql` | Tilgangshjelpere, effektiv plan, registreringstrigger, plangrenser og serverfunksjoner (RPC) |
 | `20261126120200_rls_policies.sql` | RLS på alle tabeller, policyer, kolonne- og funksjonsrettigheter |
 | `20261126120300_reference_data.sql` | Planer (Free/Plus/Pro) og offentlige strømprissatser |
+| `20261127120000_matkalkulator_fase1.sql` | Virksomhetstype på organisasjoner, utstyrsregister (`equipment` utvidet, `save_equipment`), kategori/porsjoner/tilberedningstid/ferdig vekt på oppskrifter. **Kjøres før ny frontend publiseres** |
 
 Kjøre mot det eksterne prosjektet (etter godkjenning):
 
@@ -149,7 +153,7 @@ Alle kundedata tilhører en **organisasjon**. En privatperson får en egen priva
 | Tabell | Innhold |
 |---|---|
 | `profiles` | Navn, e-post, tidspunkt for godkjente vilkår (1:1 med `auth.users`) |
-| `organizations` | Navn og type (`private`/`business`) |
+| `organizations` | Navn, type (`private`/`business`) og virksomhetstype (`business_type`: privat, bakeri, restaurant, kafe, catering, kantine, matprodusent, annet) |
 | `organization_members` | Medlemskap med rolle `owner`/`admin`/`member` |
 | `subscriptions` | `plan`, `status`, `trial_started_at`, `trial_ends_at`, `current_period_end`, felt klargjort for Stripe |
 | `plan_features` | Grenser per plan (oppskrifter, ingredienser, brukere, salg) |
@@ -324,7 +328,7 @@ Viktige constraints:
 | Ingredienser | ✓ | Idempotent via `local_id` |
 | Oppskrifter med linjer og ovnsoppsett | ✓ | Ovnsoppsett og utstyr per oppskrift følger med i `energy` |
 | Bakehistorikk | – | **Mangler.** Kan legges til med `local_id` på `baking_history` og plansjekk for salg |
-| Utstyrsregister (`equipment`) | – | Lokal app har ikke eget utstyrsregister. Utstyr ligger i oppskriftenes `energy` |
+| Utstyrsregister (`equipment`) | – | Importeres ikke. Utstyr valgt i oppskrifter følger med i `energy` (kopierte verdier), men må registreres på nytt i registeret |
 | Innstillinger (strømoppsett, bakefrekvens) | – | **Mangler.** Bevisst ikke overskrevet, fordi strømoppsettet er felles for organisasjonen |
 
 ### E-post (Resend og norske maler)

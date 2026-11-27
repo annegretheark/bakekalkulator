@@ -78,6 +78,7 @@ export function defaultSettings(): AppSettings {
     bakesPerMonth: 4,
     price: defaultPriceSettings('NO1'),
     plan: 'free',
+    businessType: 'privat',
   }
 }
 

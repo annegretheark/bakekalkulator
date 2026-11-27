@@ -12,6 +12,9 @@ import { navigate } from '../hooks/useRoute'
 import type { PriceBasis } from '../context/dataContext'
 import { withCustomerType } from '../utils/priceSettings'
 import { useAuth } from '../hooks/useAuth'
+import { useBusiness } from '../hooks/useBusiness'
+import { EquipmentUsesEditor } from '../components/EquipmentUsesEditor'
+import { yieldWord } from '../lib/businessTypes'
 
 export function CalculatorPage() {
   const t = useT()
@@ -26,6 +29,11 @@ export function CalculatorPage() {
   const priceReadOnly = activeOrg?.role === 'member'
   const { result, pricePerKwh, priceSource, fallback, recipe, window } = useBakeResult()
   const [saved, setSaved] = useState(false)
+  const { profile } = useBusiness()
+  const unit = recipe?.yieldUnit ?? profile.defaultYieldUnit
+  const unitWord = yieldWord(unit, draft.count)
+  const bakery = profile.productionWord === 'baking'
+  const registerMode = draft.energy.energySource === 'equipment'
 
   const setE = <K extends keyof EnergyInput>(k: K, v: EnergyInput[K]) => setDraft((d) => ({ ...d, energy: { ...d.energy, [k]: v } }))
   const e = draft.energy
@@ -64,35 +72,43 @@ export function CalculatorPage() {
   return (
     <>
       <PageHeader
-        title="Bakekalkulator"
+        title={profile.calculatorName}
         description="Resultatene oppdateres fortløpende mens du endrer verdiene."
-        actions={<button className="btn primary" onClick={save} disabled={draft.count <= 0}><Save size={18} /> {saved ? 'Lagret i historikken' : 'Lagre baking'}</button>}
+        actions={<button className="btn primary" onClick={save} disabled={draft.count <= 0}><Save size={18} /> {saved ? 'Lagret i historikken' : `Lagre ${profile.productionWord}`}</button>}
       />
 
-      <ResultCards result={result} pricePerKwh={pricePerKwh} priceSource={priceSource} count={draft.count} />
+      <ResultCards result={result} pricePerKwh={pricePerKwh} priceSource={priceSource} count={draft.count} unit={unitWord} perUnit={yieldWord(unit, 1)} showSavings={profile.showStorePrice} />
       {fallback && <Notice tone="warn">Strømpris er ikke tilgjengelig nå. Beregningen bruker reserveprisen {formatOre(pricePerKwh, f.locale)} fra Innstillinger.</Notice>}
 
       <div className="grid-2">
         <div className="stack">
-          <Card title="Baksten" icon={CookingPot}>
+          <Card title={bakery ? 'Baksten' : 'Produksjonen'} icon={CookingPot}>
             <div className="form-grid">
               <SelectField label="Oppskrift" value={draft.recipeId ?? ''} onChange={pickRecipe}
                 options={[{ value: '', label: '— Ingen oppskrift —' }, ...data.recipes.map((r) => ({ value: r.id, label: r.name }))]} />
-              <TextField label="Navn på baksten" value={draft.name} onChange={(v) => setDraft((d) => ({ ...d, name: v }))} placeholder="F.eks. grove brød" />
-              <SelectField<BakeType> label="Type bakst" value={draft.type} onChange={(v) => setDraft((d) => ({ ...d, type: v }))}
-                options={BAKE_TYPES.map((b) => ({ value: b, label: t(`bakeType.${b}`) }))} />
-              <NumberField label="Antall ferdige bakervarer" value={draft.count} integer min={1} onChange={(v) => setDraft((d) => ({ ...d, count: v }))} suffix="stk"
+              <TextField label={bakery ? 'Navn på baksten' : 'Navn på produksjonen'} value={draft.name} onChange={(v) => setDraft((d) => ({ ...d, name: v }))} placeholder={bakery ? 'F.eks. grove brød' : 'F.eks. dagens lunsj'} />
+              {bakery && (
+                <SelectField<BakeType> label="Type bakst" value={draft.type} onChange={(v) => setDraft((d) => ({ ...d, type: v }))}
+                  options={BAKE_TYPES.map((b) => ({ value: b, label: t(`bakeType.${b}`) }))} />
+              )}
+              <NumberField label={bakery && unit === 'stk' ? 'Antall ferdige bakervarer' : `Antall ${yieldWord(unit)}`} value={draft.count} integer min={1} onChange={(v) => setDraft((d) => ({ ...d, count: v }))} suffix={unitWord}
                 hint={recipe && draft.count !== recipe.yieldCount ? `Oppskriften skaleres ×${formatNumber(draft.count / recipe.yieldCount, 2, f.locale)}` : undefined} />
-              <NumberField label="Butikkpris for tilsvarende vare" value={draft.storePricePerItem} onChange={(v) => setDraft((d) => ({ ...d, storePricePerItem: v }))} suffix="kr/stk" />
+              {profile.showStorePrice && (
+                <NumberField label="Butikkpris for tilsvarende vare" value={draft.storePricePerItem} onChange={(v) => setDraft((d) => ({ ...d, storePricePerItem: v }))} suffix={`kr/${yieldWord(unit, 1)}`} />
+              )}
             </div>
             {data.recipes.length === 0 && <Notice>Du har ingen oppskrifter ennå. <button className="link" onClick={() => navigate('oppskrifter')}>Opprett en oppskrift</button> for å få med ingredienskostnader.</Notice>}
           </Card>
 
-          <Card title="Ovn" icon={Gauge} actions={recipe && (
+          <Card title="Strømberegning" icon={Zap} actions={recipe && (
             <button className="link" onClick={() => upsertRecipe({ ...recipe, energy: draft.energy, bakeMinutes: draft.energy.bakeMinutes, updatedAt: new Date().toISOString() })}>
-              Lagre ovnsoppsett i oppskriften
+              Lagre oppsettet i oppskriften
             </button>
           )}>
+            <EquipmentUsesEditor energy={draft.energy} onChange={(energy) => setDraft((d) => ({ ...d, energy }))} equipment={data.equipment} count={draft.count} unitWord={unitWord} />
+          </Card>
+
+          {!registerMode && <Card title="Ovn" icon={Gauge}>
             <div className="form-grid">
               <NumberField label={extraOvens.length ? 'Ovn 1 – effekt' : 'Ovnens effekt'} value={e.ovenWatt} onChange={(v) => setE('ovenWatt', v)} suffix="W" max={100000} hint="Står på typeskiltet. Hjemmeovn ofte 2000–3600 W, bakeriovn 10 000–40 000 W (10–40 kW)" />
               <NumberField label="Steketemperatur" value={e.temperatureC} onChange={(v) => setE('temperatureC', v)} suffix="°C" max={350} hint="Til informasjon – effekten styres av effektfaktoren" />
@@ -120,9 +136,9 @@ export function CalculatorPage() {
             ))}
             <button className="btn ghost" onClick={addOven}><Plus size={16} /> Legg til ovn</button>
             {extraOvens.length > 0 && <p className="muted small">Ovnene regnes som brukt samtidig. Sett antall omganger til 0 for en ovn som bare forvarmes.</p>}
-          </Card>
+          </Card>}
 
-          <Card title="Kjøkkenmaskin og annet utstyr" icon={Zap}>
+          {!registerMode && <Card title="Kjøkkenmaskin og annet utstyr" icon={Zap}>
             <div className="form-grid">
               <NumberField label="Kjøkkenmaskinens effekt" value={e.mixerWatt} onChange={(v) => setE('mixerWatt', v)} suffix="W" max={5000} />
               <NumberField label="Brukstid" value={e.mixerMinutes} onChange={(v) => setE('mixerMinutes', v)} suffix="min" max={240} />
@@ -138,7 +154,7 @@ export function CalculatorPage() {
               </div>
             ))}
             <button className="btn ghost" onClick={() => setE('otherEquipment', [...e.otherEquipment, { id: uid(), name: 'Hevebox', watt: 100, minutes: 60, powerFactorPercent: 50 }])}><Plus size={16} /> Legg til utstyr</button>
-          </Card>
+          </Card>}
 
           <Card title="Målt forbruk" icon={Gauge}>
             <Toggle label="Bruk faktisk målt strømforbruk" hint="F.eks. fra strømmåler-app eller måleplugg. Erstatter estimatet." checked={e.useMeasured} onChange={(v) => setE('useMeasured', v)} />
@@ -168,7 +184,7 @@ export function CalculatorPage() {
             </div>
             {window ? (
               <p className="callout">
-                Billigst å bake: <strong>{formatTime(window.start, f.locale)}–{formatTime(window.end, f.locale)}</strong>
+                {bakery ? 'Billigst å bake' : 'Billigst å produsere'}: <strong>{formatTime(window.start, f.locale)}–{formatTime(window.end, f.locale)}</strong>
                 {new Date(window.start).getDate() !== new Date().getDate() && ' i morgen'} · ovnen koster {formatMoney(window.cost, f)} ({formatOre(window.avgPricePerKwh, f.locale)})
               </p>
             ) : <p className="muted small">Billigste tidspunkt krever spotpriser for resten av døgnet.</p>}

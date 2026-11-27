@@ -10,6 +10,7 @@ const HEADINGS: Record<string, RegExp> = {
   strompriser: /^Strømpriser$/,
   oppskrifter: /^Mine oppskrifter$/,
   ingredienser: /^Ingredienser$/,
+  utstyr: /^Utstyr$/,
   historikk: /^Bakehistorikk$/,
   salg: /^Salg og fortjeneste$/,
   innstillinger: /^Innstillinger$/,

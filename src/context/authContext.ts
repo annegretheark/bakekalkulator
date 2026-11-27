@@ -9,6 +9,8 @@ export interface OrgContext {
   id: string
   name: string
   type: 'private' | 'business'
+  /** Virksomhetstype (fra fase 1-migrasjonen). Mangler før migrasjonen er kjørt. */
+  business_type?: string
   role: OrgRole
   member_count: number
   subscription: SubscriptionInfo | null

@@ -1,4 +1,5 @@
-import type { AppData, AppSettings, BakeLog, Id, Ingredient, Recipe } from '../../types'
+import type { AppData, AppSettings, BakeLog, BusinessType, EquipmentItem, Id, Ingredient, Recipe } from '../../types'
+import { normalizeRecipe } from '../../utils/portions'
 import { defaultSettings } from '../../lib/defaults'
 import { DATA_VERSION, seedData } from '../../lib/seed'
 import type { DataRepository } from './repository'
@@ -21,8 +22,9 @@ function migrate(raw: Partial<AppData>): AppData {
     version: DATA_VERSION,
     settings: { ...def, ...s, price: { ...def.price, ...(s.price ?? {}) } },
     ingredients: Array.isArray(raw.ingredients) ? raw.ingredients : [],
-    recipes: Array.isArray(raw.recipes) ? raw.recipes : [],
+    recipes: Array.isArray(raw.recipes) ? raw.recipes.map(normalizeRecipe) : [],
     history: Array.isArray(raw.history) ? raw.history : [],
+    equipment: Array.isArray(raw.equipment) ? raw.equipment : [],
   }
 }
 
@@ -84,4 +86,7 @@ export class LocalStorageRepository implements DataRepository {
   addLog(item: BakeLog) { return this.update((d) => ({ ...d, history: [item, ...d.history] })) }
   deleteLog(id: Id) { return this.update((d) => ({ ...d, history: d.history.filter((x) => x.id !== id) })) }
   replaceAll(data: AppData) { return this.update(() => migrate(data)) }
+  upsertEquipment(item: EquipmentItem) { return this.update((d) => ({ ...d, equipment: upsert(d.equipment, item) })) }
+  deleteEquipment(id: Id) { return this.update((d) => ({ ...d, equipment: d.equipment.filter((x) => x.id !== id) })) }
+  saveBusinessType(t: BusinessType) { return this.update((d) => ({ ...d, settings: { ...d.settings, businessType: t } })) }
 }

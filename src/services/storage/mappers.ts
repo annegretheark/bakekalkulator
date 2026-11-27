@@ -1,6 +1,9 @@
 // Oversetting mellom databaserader (snake_case) og appens modeller (camelCase).
 // Rene funksjoner – testes isolert.
-import type { AppData, AppSettings, BakeLog, EnergyInput, Ingredient, PriceSettings, Recipe, RecipeIngredient, Tariff } from '../../types'
+import type { AppData, AppSettings, BakeLog, BusinessType, EnergyInput, EquipmentItem, Ingredient, PriceSettings, Recipe, RecipeIngredient, Tariff } from '../../types'
+import { EQUIPMENT_TYPES, RECIPE_CATEGORIES } from '../../types'
+import { categoryForBakeType } from '../../utils/portions'
+import { isBusinessType } from '../../lib/businessTypes'
 import { defaultEnergyInput, defaultPriceSettings, defaultSettings } from '../../lib/defaults'
 import { DATA_VERSION } from '../../lib/seed'
 import type { Plan } from '../../types'
@@ -36,7 +39,11 @@ export interface RecipeRow {
   organization_id: string
   name: string
   type: Recipe['type']
+  category?: string | null
   yield_count: number
+  yield_unit?: string | null
+  prep_minutes?: number | null
+  finished_weight_g?: number | string | null
   steps: string[] | null
   rise_minutes: number
   bake_minutes: number
@@ -46,6 +53,26 @@ export interface RecipeRow {
   created_at: string
   updated_at: string
   recipe_ingredients?: RecipeIngredientRow[]
+}
+
+export interface EquipmentRow {
+  id: string
+  organization_id: string
+  name: string
+  equipment_type?: string | null
+  manufacturer?: string | null
+  model?: string | null
+  watt: number | string
+  minutes: number | string
+  power_factor_percent: number | string
+  preheat_minutes?: number | string | null
+  preheat_power_percent?: number | string | null
+  measured_kwh?: number | string | null
+  output_per_run?: number | null
+  continuous?: boolean | null
+  hours_per_day?: number | string | null
+  is_estimate?: boolean | null
+  comment?: string | null
 }
 
 export interface HistoryRow {
@@ -114,11 +141,21 @@ export const energyFromJson = (e: Partial<EnergyInput> | null | undefined): Ener
   extraOvens: Array.isArray(e?.extraOvens) ? e.extraOvens : [],
 })
 
+const optPos = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === '') return null
+  const n = num(v, 0)
+  return n > 0 ? n : null
+}
+
 export const recipeFromRow = (r: RecipeRow): Recipe => ({
   id: r.id,
   name: r.name,
   type: r.type,
+  category: RECIPE_CATEGORIES.includes(r.category as Recipe['category']) ? (r.category as Recipe['category']) : categoryForBakeType(r.type),
   yieldCount: r.yield_count,
+  yieldUnit: r.yield_unit === 'porsjoner' ? 'porsjoner' : 'stk',
+  prepMinutes: num(r.prep_minutes, 0),
+  finishedWeightG: optPos(r.finished_weight_g),
   ingredients: [...(r.recipe_ingredients ?? [])]
     .sort((a, b) => a.position - b.position)
     .map((l): RecipeIngredient => ({ id: l.id, ingredientId: l.ingredient_id ?? '', amount: num(l.amount), unit: l.unit })),
@@ -138,7 +175,11 @@ export const recipeToRpc = (r: Recipe) => ({
     id: r.id,
     name: r.name.trim(),
     type: r.type,
+    category: r.category,
+    yield_unit: r.yieldUnit,
     yield_count: Math.max(1, Math.round(r.yieldCount)),
+    prep_minutes: Math.max(0, Math.round(r.prepMinutes || 0)),
+    finished_weight_g: r.finishedWeightG && r.finishedWeightG > 0 ? r.finishedWeightG : null,
     steps: r.steps.filter((s) => s.trim()),
     rise_minutes: Math.round(r.riseMinutes),
     bake_minutes: Math.round(r.bakeMinutes),
@@ -147,6 +188,47 @@ export const recipeToRpc = (r: Recipe) => ({
     energy: r.energy,
   },
   lines: r.ingredients.map((l) => ({ id: l.id, ingredient_id: l.ingredientId || null, amount: l.amount, unit: l.unit })),
+})
+
+export const equipmentFromRow = (r: EquipmentRow): EquipmentItem => ({
+  id: r.id,
+  name: r.name,
+  type: EQUIPMENT_TYPES.includes(r.equipment_type as EquipmentItem['type']) ? (r.equipment_type as EquipmentItem['type']) : 'annet',
+  manufacturer: r.manufacturer ?? '',
+  model: r.model ?? '',
+  watt: num(r.watt),
+  minutes: num(r.minutes),
+  powerPercent: num(r.power_factor_percent, 100),
+  preheatMinutes: num(r.preheat_minutes, 0),
+  preheatPowerPercent: num(r.preheat_power_percent, 100),
+  measuredKwh: optPos(r.measured_kwh),
+  outputPerRun: optPos(r.output_per_run),
+  continuous: !!r.continuous,
+  hoursPerDay: num(r.hours_per_day, 24),
+  isEstimate: !!r.is_estimate,
+  comment: r.comment ?? '',
+})
+
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Number.isFinite(n) ? n : lo))
+
+/** Argument til RPC-en save_equipment. Verdiene holdes innenfor databasens grenser. */
+export const equipmentToRpc = (e: EquipmentItem) => ({
+  id: e.id,
+  name: e.name.trim(),
+  equipment_type: e.type,
+  manufacturer: e.manufacturer.trim(),
+  model: e.model.trim(),
+  watt: clamp(e.watt, 0.01, 100000),
+  minutes: clamp(e.minutes, 0, 10080),
+  power_factor_percent: clamp(e.powerPercent, 0, 100),
+  preheat_minutes: clamp(e.preheatMinutes, 0, 1440),
+  preheat_power_percent: clamp(e.preheatPowerPercent, 0, 100),
+  measured_kwh: e.measuredKwh && e.measuredKwh > 0 ? e.measuredKwh : null,
+  output_per_run: e.outputPerRun && e.outputPerRun >= 1 ? Math.round(e.outputPerRun) : null,
+  continuous: e.continuous,
+  hours_per_day: clamp(e.hoursPerDay, 0, 24),
+  is_estimate: e.isEstimate,
+  comment: e.comment,
 })
 
 const optNum = (v: number | string | null) => (v === null || v === undefined ? null : num(v))
@@ -237,9 +319,10 @@ export interface UserSettingsRow {
   bakes_per_month: number | string
 }
 
-export function settingsFromRows(user: UserSettingsRow | null, price: Partial<PriceSettings> | null, plan: Plan): AppSettings {
+export function settingsFromRows(user: UserSettingsRow | null, price: Partial<PriceSettings> | null, plan: Plan, businessType?: BusinessType | string | null): AppSettings {
   const def = defaultSettings()
   return {
+    businessType: isBusinessType(businessType) ? businessType : def.businessType,
     locale: user?.locale ?? def.locale,
     currency: user?.currency ?? def.currency,
     bakesPerMonth: user ? num(user.bakes_per_month, def.bakesPerMonth) : def.bakesPerMonth,
@@ -252,16 +335,19 @@ export function buildAppData(parts: {
   user: UserSettingsRow | null
   price: Partial<PriceSettings> | null
   plan: Plan
+  businessType?: string | null
   ingredients: IngredientRow[]
   recipes: RecipeRow[]
   history: HistoryRow[]
+  equipment?: EquipmentRow[]
 }): AppData {
   return {
     version: DATA_VERSION,
-    settings: settingsFromRows(parts.user, parts.price, parts.plan),
+    settings: settingsFromRows(parts.user, parts.price, parts.plan, parts.businessType),
     ingredients: parts.ingredients.map(ingredientFromRow),
     recipes: parts.recipes.map(recipeFromRow),
     history: parts.history.map(historyFromRow),
+    equipment: (parts.equipment ?? []).map(equipmentFromRow),
   }
 }
 

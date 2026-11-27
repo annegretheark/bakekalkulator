@@ -1,4 +1,5 @@
 import type { EnergyInput, EnergyResult, LoadSegment, Oven } from '../types'
+import { equipmentUsesAsOvens } from './equipment'
 
 const clampNonNeg = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0)
 
@@ -13,8 +14,17 @@ export function energyKwh(watt: number, minutes: number, powerPercent = 100): nu
  */
 const roundsOf = (n: number) => Math.max(0, Math.floor(clampNonNeg(n)))
 
-/** Alle ovner: hovedovnen (feltene i EnergyInput) og eventuelle ekstra ovner. */
+/** Bruker beregningen utstyr fra registeret (i stedet for manuelle ovnsfelt)? */
+export function usesRegister(input: EnergyInput): boolean {
+  return input.energySource === 'equipment'
+}
+
+/**
+ * Alle ovner: hovedovnen (feltene i EnergyInput) og eventuelle ekstra ovner.
+ * Med utstyr fra registeret er det bare registerutstyret som teller.
+ */
 export function allOvens(input: EnergyInput): Oven[] {
+  if (usesRegister(input)) return equipmentUsesAsOvens(input.equipmentUses)
   const main: Oven = {
     id: 'main', name: 'Ovn 1', watt: input.ovenWatt,
     preheatMinutes: input.preheatMinutes, preheatPowerPercent: input.preheatPowerPercent,
@@ -23,7 +33,20 @@ export function allOvens(input: EnergyInput): Oven[] {
   return [main, ...(Array.isArray(input.extraOvens) ? input.extraOvens : [])]
 }
 
+function calculateRegisterEnergy(input: EnergyInput): EnergyResult {
+  const ovens = allOvens(input)
+  const parts = ovens.map((o) => ({
+    key: `eq:${o.id}`,
+    label: o.name || 'Utstyr',
+    kwh: energyKwh(o.watt, o.preheatMinutes, o.preheatPowerPercent) + energyKwh(o.watt, o.bakeMinutes, o.bakePowerPercent) * roundsOf(o.rounds),
+  }))
+  const estimatedKwh = parts.reduce((s, p) => s + p.kwh, 0)
+  const measured = input.useMeasured && clampNonNeg(input.measuredKwh) > 0
+  return { parts, estimatedKwh, totalKwh: measured ? clampNonNeg(input.measuredKwh) : estimatedKwh, measured }
+}
+
 export function calculateEnergy(input: EnergyInput): EnergyResult {
+  if (usesRegister(input)) return calculateRegisterEnergy(input)
   const ovens = allOvens(input)
   const rounds = roundsOf(input.rounds)
   const preheat = ovens.reduce((s, o) => s + energyKwh(o.watt, o.preheatMinutes, o.preheatPowerPercent), 0)

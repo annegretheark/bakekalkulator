@@ -13,6 +13,7 @@ import { CalculatorPage } from './pages/CalculatorPage'
 import { PricesPage } from './pages/PricesPage'
 import { RecipesPage } from './pages/RecipesPage'
 import { IngredientsPage } from './pages/IngredientsPage'
+import { EquipmentPage } from './pages/EquipmentPage'
 import { HistoryPage } from './pages/HistoryPage'
 import { SalesPage } from './pages/SalesPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -27,6 +28,7 @@ const PAGES: Record<RouteKey, () => React.JSX.Element | null> = {
   strompriser: PricesPage,
   oppskrifter: RecipesPage,
   ingredienser: IngredientsPage,
+  utstyr: EquipmentPage,
   historikk: HistoryPage,
   salg: SalesPage,
   innstillinger: SettingsPage,

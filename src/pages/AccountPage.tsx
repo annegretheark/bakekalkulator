@@ -296,7 +296,7 @@ function ExportButton({ onError }: { onError: (e: unknown) => void }) {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
         const a = document.createElement('a')
         a.href = URL.createObjectURL(blob)
-        a.download = `mine-data-bakekalkulator-${new Date().toISOString().slice(0, 10)}.json`
+        a.download = `mine-data-matkalkulator-${new Date().toISOString().slice(0, 10)}.json`
         a.click()
         URL.revokeObjectURL(a.href)
       } catch (e) { onError(e) } finally { setBusy(false) }

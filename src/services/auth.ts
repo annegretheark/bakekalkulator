@@ -7,6 +7,7 @@
  */
 
 import { LEGAL_VERSIONS } from '../lib/legal'
+import type { BusinessType } from '../types'
 
 export type AccountType = 'private' | 'business'
 
@@ -16,6 +17,8 @@ export interface RegistrationInput {
   password: string
   passwordConfirm: string
   accountType: AccountType
+  /** Virksomhetstype for bedrifter. Privatpersoner får alltid «privat». Mangler = «annet». */
+  businessType?: BusinessType
   organizationName: string
   acceptTerms: boolean
   acceptPrivacy: boolean
@@ -94,6 +97,7 @@ export async function signUp(client: AuthClient, i: RegistrationInput, origin: s
       data: {
         full_name: i.fullName.trim(),
         account_type: i.accountType,
+        business_type: i.accountType === 'business' ? (i.businessType && i.businessType !== 'privat' ? i.businessType : 'annet') : 'privat',
         organization_name: i.accountType === 'business' ? i.organizationName.trim() : null,
         // Kun versjoner sendes – serveren registrerer godkjenningene med servertid
         terms_version: i.acceptTerms ? LEGAL_VERSIONS.terms : null,

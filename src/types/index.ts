@@ -1,4 +1,4 @@
-// Sentrale datamodeller for Rett i lomma – Bakekalkulator.
+// Sentrale datamodeller for Rett i lomma – Matkalkulator.
 // Alle modeller er rene data (serialiserbare) slik at de kan lagres i
 // localStorage nå og i PostgreSQL/Supabase senere.
 
@@ -7,6 +7,22 @@ export type Id = string
 export type BakeType = 'brod' | 'rundstykker' | 'kake' | 'pizza' | 'boller' | 'annet'
 
 export const BAKE_TYPES: BakeType[] = ['brod', 'rundstykker', 'kake', 'pizza', 'boller', 'annet']
+
+// ---------- Virksomhet ----------
+export type BusinessType = 'privat' | 'bakeri' | 'restaurant' | 'kafe' | 'catering' | 'kantine' | 'matprodusent' | 'annet'
+export const BUSINESS_TYPES: BusinessType[] = ['privat', 'bakeri', 'restaurant', 'kafe', 'catering', 'kantine', 'matprodusent', 'annet']
+
+// ---------- Oppskriftskategorier ----------
+export type RecipeCategory =
+  | 'brod_bakervarer' | 'frokost' | 'lunsj' | 'forretter' | 'hovedretter' | 'supper' | 'salater'
+  | 'pizza' | 'desserter' | 'drikke' | 'sauser' | 'tilbehor' | 'catering' | 'annet'
+export const RECIPE_CATEGORIES: RecipeCategory[] = [
+  'brod_bakervarer', 'frokost', 'lunsj', 'forretter', 'hovedretter', 'supper', 'salater',
+  'pizza', 'desserter', 'drikke', 'sauser', 'tilbehor', 'catering', 'annet',
+]
+
+/** Hva oppskriften gir: stykk (brød, boller) eller porsjoner (matretter). */
+export type YieldUnit = 'stk' | 'porsjoner'
 
 // ---------- Enheter ----------
 export type Unit = 'g' | 'kg' | 'ml' | 'dl' | 'l' | 'stk'
@@ -101,6 +117,63 @@ export interface Equipment {
   powerFactorPercent: number
 }
 
+// ---------- Utstyrsregister ----------
+export type EquipmentType =
+  | 'stekeovn' | 'varmluftsovn' | 'bakerovn' | 'pizzaovn' | 'komfyr' | 'induksjonstopp' | 'frityr' | 'grill'
+  | 'mikrobolgeovn' | 'eltemaskin' | 'kjokkenmaskin' | 'oppvaskmaskin' | 'kjoleskap' | 'fryser' | 'ventilasjon' | 'annet'
+export const EQUIPMENT_TYPES: EquipmentType[] = [
+  'stekeovn', 'varmluftsovn', 'bakerovn', 'pizzaovn', 'komfyr', 'induksjonstopp', 'frityr', 'grill',
+  'mikrobolgeovn', 'eltemaskin', 'kjokkenmaskin', 'oppvaskmaskin', 'kjoleskap', 'fryser', 'ventilasjon', 'annet',
+]
+
+/** En registrert enhet i utstyrsregisteret (tabellen equipment). */
+export interface EquipmentItem {
+  id: Id
+  name: string
+  type: EquipmentType
+  manufacturer: string
+  model: string
+  watt: number
+  preheatMinutes: number
+  preheatPowerPercent: number
+  /** Effektandel under normal drift (termostat, delvis last). */
+  powerPercent: number
+  /** Normal brukstid per produksjon (min). */
+  minutes: number
+  /** Målt forbruk per produksjon i kWh, inkl. forvarming. Erstatter anslaget. */
+  measuredKwh: number | null
+  /** Antall produkter eller porsjoner per produksjon (kapasitet). */
+  outputPerRun: number | null
+  /** Går hele tiden (kjøleskap, fryser, ventilasjon): felles driftskostnad, ikke per oppskrift. */
+  continuous: boolean
+  hoursPerDay: number
+  /** Verdiene er anslag fra en mal og ikke kontrollert av kunden. */
+  isEstimate: boolean
+  comment: string
+}
+
+/**
+ * Registrert utstyr brukt i en oppskrift eller kalkulasjon. Verdiene kopieres fra
+ * registeret (og oppdateres derfra ved innlasting), så oppskriften kan beregnes
+ * også om enheten senere slettes.
+ */
+export interface EquipmentUse {
+  id: Id
+  equipmentId: Id
+  name: string
+  watt: number
+  preheatMinutes: number
+  preheatPowerPercent: number
+  powerPercent: number
+  measuredKwh: number | null
+  /** Driftstid per omgang (min). */
+  minutes: number
+  /** Antall omganger. Forvarming regnes én gang per enhet. */
+  runs: number
+  /** Forvarm enheten (gjelder bare utstyr med forvarmingstid). */
+  preheat: boolean
+}
+
 /** En ekstra ovn som brukes samtidig med hovedovnen. */
 export interface Oven {
   id: Id
@@ -127,12 +200,20 @@ export interface EnergyInput {
   otherEquipment: Equipment[]
   /** Ekstra ovner (hovedovnen er feltene over). Mangler i eldre lagrede data. */
   extraOvens?: Oven[]
+  /**
+   * 'manual': ovn og kjøkkenmaskin fra feltene over (som før).
+   * 'equipment': bare utstyr fra registeret (equipmentUses). Feltene over brukes da
+   * ikke, så samme ovn ikke regnes to ganger. Mangler i eldre data = 'manual'.
+   */
+  energySource?: 'manual' | 'equipment'
+  equipmentUses?: EquipmentUse[]
   useMeasured: boolean
   measuredKwh: number
 }
 
 export interface EnergyPart {
-  key: 'preheat' | 'bake' | 'mixer' | 'other'
+  /** 'preheat' | 'bake' | 'mixer' | 'other', eller 'eq:<id>' for utstyr fra registeret */
+  key: string
   label: string
   kwh: number
 }
@@ -180,7 +261,13 @@ export interface Recipe {
   id: Id
   name: string
   type: BakeType
+  category: RecipeCategory
   yieldCount: number
+  yieldUnit: YieldUnit
+  /** Aktiv tilberedningstid (min), utenom heving og steking. */
+  prepMinutes: number
+  /** Ferdig vekt for hele oppskriften i gram. Gir kostnad per kilo. */
+  finishedWeightG: number | null
   ingredients: RecipeIngredient[]
   steps: string[]
   riseMinutes: number
@@ -265,6 +352,8 @@ export interface AppSettings {
   bakesPerMonth: number
   price: PriceSettings
   plan: Plan
+  /** Virksomhetstype (tilpasser meny og ord). I skyen lagres den på organisasjonen. */
+  businessType: BusinessType
 }
 
 export interface AppData {
@@ -273,4 +362,5 @@ export interface AppData {
   ingredients: Ingredient[]
   recipes: Recipe[]
   history: BakeLog[]
+  equipment: EquipmentItem[]
 }
