@@ -35,7 +35,7 @@ export class SupabaseRepository implements DataRepository {
       this.client.from('user_settings').select('locale, currency, bakes_per_month').eq('user_id', this.userId).maybeSingle(),
       this.client.from('electricity_settings').select('settings').eq('organization_id', org).maybeSingle(),
       this.client.from('ingredients').select('*').eq('organization_id', org).order('name'),
-      this.client.from('recipes').select('*, recipe_ingredients!recipe_id(*)').eq('organization_id', org).order('created_at'),
+      this.client.from('recipes').select('*, recipe_ingredients!recipe_ingredients_recipe_id_organization_id_fkey(*)').eq('organization_id', org).order('created_at'),
       this.client.from('baking_history').select('*').eq('organization_id', org).order('baked_at', { ascending: false }).limit(1000),
       this.client.from('equipment').select('*').eq('organization_id', org).order('created_at'),
       this.client.from('organizations').select('business_type').eq('id', org).maybeSingle(),
