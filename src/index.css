@@ -148,7 +148,9 @@ input:not([type='checkbox']), select, textarea {
   width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius-sm);
   padding: 9px 11px; min-height: 40px; transition: border-color 0.15s, box-shadow 0.15s;
 }
-.input-wrap input { padding-right: 70px; font-variant-numeric: tabular-nums; }
+.input-wrap input { font-variant-numeric: tabular-nums; }
+/* Plass til enheten bak tallet (bredden settes ut fra hvor lang enheten er) */
+.input-wrap input.has-suffix { padding-right: var(--suffix-space, 70px); }
 .suffix { position: absolute; right: 11px; color: var(--muted); font-size: 0.82rem; pointer-events: none; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--green-2); box-shadow: 0 0 0 3px var(--green-soft); }
 .has-error input { border-color: var(--red); }
@@ -380,11 +382,12 @@ tr.warn-row td { background: var(--wheat-soft); }
 .labor-row { display: grid; grid-template-columns: 2fr 1fr 1fr 90px 36px; gap: 8px; align-items: end; margin-bottom: 8px; }
 .labor-row .row-cost { padding-bottom: 10px; text-align: right; }
 .labor-row:has(> :nth-child(3):last-child) { grid-template-columns: 2fr 1fr 36px; }
-.menu-item-row { display: grid; grid-template-columns: 2fr 2fr 1fr 1.2fr 90px 36px; gap: 8px; align-items: end; margin-bottom: 8px; }
+.menu-item-row { display: grid; grid-template-columns: 2fr 2fr 1fr 1.6fr 90px 36px; gap: 8px; align-items: end; margin-bottom: 8px; }
 .menu-item-row .row-cost { padding-bottom: 10px; text-align: right; }
 .cost-role { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; margin: 0 0 12px; min-width: 0; }
 .cost-role-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 10px; }
-.menu-table th, .menu-table td { white-space: nowrap; }
+.menu-table td { white-space: nowrap; }
+.menu-table th { white-space: normal; vertical-align: bottom; }
 .allergen-table th.rot { font-size: 0.75rem; text-align: center; padding: 6px 4px; }
 .allergen-table td.mark { text-align: center; font-weight: 700; width: 44px; }
 .allergen-table td.allergen-inneholder { color: var(--red); background: var(--red-soft); }
@@ -407,7 +410,12 @@ tr.warn-row td { background: var(--wheat-soft); }
 
 /* Utskrift: bare allergenoversikten (Menyer → Skriv ut allergenoversikt) */
 @media print {
-  :root { --bg: #fff; --surface: #fff; color-scheme: light; }
+  /* Alltid lyse farger på papir, også når skjermen bruker mørk modus */
+  :root {
+    --bg: #fff; --surface: #fff; --surface-2: #f1f1ee; --line: #999; --ink: #000; --ink-2: #333; --muted: #555;
+    --red: #a94a35; --red-soft: #f7e3dd; --amber: #8a5e10; --wheat-soft: #f6ead3; --green: #2f5240; --green-soft: #e3ece4;
+    color-scheme: light;
+  }
   body { background: #fff; color: #000; }
   .sidebar, .topbar, .tabbar, .scrim, .offline-banner, .no-print, .page-actions, .page-header { display: none !important; }
   .content { padding: 0 !important; }

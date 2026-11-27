@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react'
+import { useId, useState, type CSSProperties, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { AlertTriangle, Info } from 'lucide-react'
 import { parseNumber } from '../utils/format'
@@ -106,6 +106,8 @@ export function NumberField({ label, value, onChange, suffix, min = 0, max, step
           value={text}
           disabled={disabled}
           step={step}
+          className={suffix ? 'has-suffix' : undefined}
+          style={suffix ? { '--suffix-space': `calc(${suffix.length * 0.5}em + 20px)` } as CSSProperties : undefined}
           aria-invalid={!!error}
           aria-describedby={error || hint ? `${id}-msg` : undefined}
           onChange={(e) => {

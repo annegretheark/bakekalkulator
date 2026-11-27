@@ -113,8 +113,8 @@ export function MenusPage() {
                 <thead>
                   <tr>
                     <th>Rett</th><th className="num">Råvarer</th><th className="num">Energi</th><th className="num">Personal</th>
-                    <th className="num">Emballasje</th><th className="num">Drift</th><th className="num">Kostnad</th>
-                    <th className="num">Pris eks. mva</th><th className="num">Fortjeneste</th><th className="num">Margin</th><th className="num">Råvareandel</th>
+                    <th className="num">Embal&shy;lasje</th><th className="num">Drift</th><th className="num">Kostnad</th>
+                    <th className="num">Pris eks. mva</th><th className="num">Fort&shy;jeneste</th><th className="num">Margin</th><th className="num">Råvare&shy;andel</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -136,15 +136,15 @@ export function MenusPage() {
             <NumberField label="Ønsket margin" value={target} max={95} onChange={setTarget} suffix="%" hint="Fortjeneste i prosent av pris eks. mva" />
           </div>
           <div className="table-wrap">
-            <table className="clean">
+            <table className="clean responsive">
               <thead><tr><th>Rett</th><th className="num">Kostnad</th><th className="num">Pris nå</th><th className="num">Forslag inkl. mva</th></tr></thead>
               <tbody>
                 {sum.items.filter((i) => i.cost).map((i) => (
                   <tr key={i.item.id}>
-                    <td>{i.name}</td>
-                    <td className="num">{formatMoney(i.cost!.total, f)}</td>
-                    <td className="num">{i.item.price ? formatMoney(i.item.price, f) : '–'}</td>
-                    <td className="num"><strong>{formatMoney(priceForMargin(i.cost!.total, target, i.item.vatPercent), f)}</strong></td>
+                    <td data-label="Rett"><strong>{i.name}</strong></td>
+                    <td data-label="Kostnad" className="num">{formatMoney(i.cost!.total, f)}</td>
+                    <td data-label="Pris nå" className="num">{i.item.price ? formatMoney(i.item.price, f) : '–'}</td>
+                    <td data-label="Forslag inkl. mva" className="num"><strong>{formatMoney(priceForMargin(i.cost!.total, target, i.item.vatPercent), f)}</strong></td>
                   </tr>
                 ))}
               </tbody>

@@ -51,7 +51,7 @@ export function CostsPage() {
 
       <Card title="Personalkostnader" icon={Users}>
         <p className="muted small">
-          Legg inn én rad per rolle eller ansattgruppe. Velg «Detaljert» for å regne ut timekostnaden fra timelønn, eller «Ferdig timekostnad» hvis du allerede kjenner den.
+          Legg inn én rad per rolle eller ansattgruppe. Velg «Detaljert» for å regne ut timekostnaden fra timelønn, eller «Ferdig sats» hvis du allerede kjenner timekostnaden.
           Arbeidstiden registreres i hver oppskrift og fordeles på antall stk eller porsjoner.
         </p>
         {draft.staffRoles.map((r) => {
@@ -63,7 +63,7 @@ export function CostsPage() {
                 <div className="field">
                   <span className="label">Beregning</span>
                   <Segmented<StaffRole['mode']> label="Beregning" value={r.mode} onChange={(v) => setRole(r.id, { mode: v })} disabled={readOnly}
-                    options={[{ value: 'detaljert', label: 'Detaljert' }, { value: 'ferdig', label: 'Ferdig timekostnad' }]} />
+                    options={[{ value: 'detaljert', label: 'Detaljert' }, { value: 'ferdig', label: 'Ferdig sats' }]} />
                 </div>
                 {r.mode === 'ferdig' ? (
                   <NumberField label="Timekostnad" value={r.fixedHourlyCost} max={100000} onChange={(v) => setRole(r.id, { fixedHourlyCost: v })} suffix="kr/t" hint="Alt inkludert" />
