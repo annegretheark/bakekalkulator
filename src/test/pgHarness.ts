@@ -48,6 +48,8 @@ export interface TestDb {
   asWithClaims: <T = Record<string, unknown>>(uid: string, claims: Record<string, unknown>, sql: string, params?: unknown[]) => Promise<T[]>
   asAnon: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>
   su: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>
+  /** Som Edge Functions med service_role-nøkkel (omgår RLS, men ikke funksjonsrettigheter). */
+  service: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>
 }
 
 export async function createTestDb(): Promise<TestDb> {
@@ -86,5 +88,6 @@ export async function createTestDb(): Promise<TestDb> {
     asWithClaims: (uid, claims, sql, params) => run('authenticated', uid, sql, params, claims),
     asAnon: (sql, params) => run('anon', null, sql, params),
     su: (sql, params) => run(null, null, sql, params),
+    service: (sql, params) => run('service_role', null, sql, params),
   }
 }

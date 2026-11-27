@@ -18,6 +18,7 @@ import { isCompatible } from '../utils/units'
 import { bakeTypeForCategory, costPerKg, scaledWeightG, weightPerUnitG } from '../utils/portions'
 import { navigate } from '../hooks/useRoute'
 import { RecipeScanPanel } from '../components/ScanPanels'
+import { takeRecipe } from '../lib/scanHandoff'
 
 const newRecipe = (p: BusinessProfile): Recipe => {
   const now = new Date().toISOString()
@@ -40,11 +41,12 @@ export function RecipesPage() {
   const canEditCosts = !(auth.user && auth.activeOrg && auth.activeOrg.role === 'member')
   const breakdown = useRecipeBreakdown()
   const { source: priceSource } = useReferencePrice()
-  const [editing, setEditing] = useState<Recipe | null>(null)
+  const [handoff] = useState(() => takeRecipe())
+  const [editing, setEditing] = useState<Recipe | null>(handoff?.draft ?? null)
   const [viewing, setViewing] = useState<string | null>(null)
   const [scaleTo, setScaleTo] = useState<number | null>(null)
   const [scanning, setScanning] = useState(false)
-  const [scanInfo, setScanInfo] = useState<string | null>(null)
+  const [scanInfo, setScanInfo] = useState<string | null>(handoff?.message ?? null)
   const [filter, setFilter] = useState<RecipeCategory | ''>('')
 
   const openInCalculator = (r: Recipe, count = r.yieldCount) => {

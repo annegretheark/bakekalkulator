@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { BookOpen, Calculator, ChartColumn, ClipboardList, History, LayoutDashboard, LogIn, Menu, Settings, WifiOff, Shield, ShoppingBasket, UserRound, Users, Wheat, Wrench, X, Zap } from 'lucide-react'
+import { BookOpen, Calculator, ChartColumn, ClipboardList, History, ScanLine, LayoutDashboard, LogIn, Menu, Settings, WifiOff, Shield, ShoppingBasket, UserRound, Users, Wheat, Wrench, X, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { navigate, type RouteKey } from '../hooks/useRoute'
 import { useData, useFormat, useT } from '../hooks/useData'
@@ -21,6 +21,7 @@ const NAV: { key: RouteKey; label: TranslationKey; icon: LucideIcon }[] = [
   { key: 'utstyr', label: 'nav.equipment', icon: Wrench },
   { key: 'kostnader', label: 'nav.costs', icon: Users },
   { key: 'menyer', label: 'nav.menus', icon: ClipboardList },
+  { key: 'skann', label: 'nav.scan', icon: ScanLine },
   { key: 'historikk', label: 'nav.history', icon: History },
   { key: 'salg', label: 'nav.sales', icon: ChartColumn },
   { key: 'innstillinger', label: 'nav.settings', icon: Settings },

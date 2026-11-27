@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Building2, CalendarClock, Clock, Landmark, Plus, RefreshCw, Save, Shield, Trash2, Users } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { AdminAiCard } from '../components/AdminAiCard'
 import { Card, Notice, NumberField, PageHeader, SelectField, StatCard, TextField } from '../components/ui'
 import { dbErrorMessage, tariffFromRow, tariffToRpc, type TariffRow } from '../services/storage/mappers'
 import { isTariffActive } from '../utils/tariffs'
@@ -132,6 +133,8 @@ export function AdminPage() {
         </div>
         <p className="muted small">Manuell endring frem til Stripe er på plass. Kundene kan ikke endre abonnement selv.</p>
       </Card>
+
+      <AdminAiCard client={client} />
 
       <Card title="Strømprissatser" icon={Landmark} actions={<button className="btn ghost" onClick={() => setEditing(blankTariff())}><Plus size={16} /> Ny sats</button>}>
         <p className="muted small">Satser med gyldighetsperiode. Appen bruker kun satser som gjelder på beregningsdatoen. Koder i bruk: norgespris, stromstotte_terskel, stromstotte_dekning, elavgift.</p>

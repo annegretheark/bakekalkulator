@@ -1,11 +1,11 @@
 import { useSyncExternalStore } from 'react'
 
-export type AppRoute = 'oversikt' | 'kalkulator' | 'strompriser' | 'oppskrifter' | 'ingredienser' | 'utstyr' | 'kostnader' | 'menyer' | 'historikk' | 'salg' | 'innstillinger'
+export type AppRoute = 'oversikt' | 'kalkulator' | 'strompriser' | 'oppskrifter' | 'ingredienser' | 'utstyr' | 'kostnader' | 'menyer' | 'skann' | 'historikk' | 'salg' | 'innstillinger'
 export type AccountRoute = 'logg-inn' | 'registrer' | 'glemt-passord' | 'tilbakestill-passord' | 'konto' | 'admin' | 'personvern' | 'vilkar'
 export type RouteKey = AppRoute | AccountRoute
 
 /** Hovedsidene (menyen). */
-export const ROUTES: AppRoute[] = ['oversikt', 'kalkulator', 'strompriser', 'oppskrifter', 'ingredienser', 'utstyr', 'kostnader', 'menyer', 'historikk', 'salg', 'innstillinger']
+export const ROUTES: AppRoute[] = ['oversikt', 'kalkulator', 'strompriser', 'oppskrifter', 'ingredienser', 'utstyr', 'kostnader', 'menyer', 'skann', 'historikk', 'salg', 'innstillinger']
 export const ACCOUNT_ROUTES: AccountRoute[] = ['logg-inn', 'registrer', 'glemt-passord', 'tilbakestill-passord', 'konto', 'admin', 'personvern', 'vilkar']
 const ALL_ROUTES: RouteKey[] = [...ROUTES, ...ACCOUNT_ROUTES]
 

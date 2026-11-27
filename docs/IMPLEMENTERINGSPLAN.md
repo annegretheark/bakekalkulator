@@ -20,8 +20,8 @@ Videreutvikling av Bakekalkulatoren til en matkalkulator for privatpersoner, bak
 | Fase | Innhold | Status |
 |---|---|---|
 | 1 | Virksomhetstyper, utstyrsregister, matoppskrifter og porsjonsberegning | Godkjent. Branch `fase-1-matkalkulator` er pushet, ikke publisert |
-| 2 | Personalkostnader, driftskostnader (fordeling av kjøl/frys/ventilasjon), allergener, menykalkulasjon. I tillegg underoppskrifter og arbeidstid fra punkt 4 | **Ferdig på branch `fase-2-matkalkulator`, venter på godkjenning** |
-| 3 | PWA (finnes delvis), egen Skann-side, strekkode med Open Food Facts-data, OCR og AI-skanning (Claude Haiku 5.5 i Supabase Edge Function med kvoter) | Ikke startet |
+| 2 | Personalkostnader, driftskostnader (fordeling av kjøl/frys/ventilasjon), allergener, menykalkulasjon. I tillegg underoppskrifter og arbeidstid fra punkt 4 | Godkjent. Branch `fase-2-matkalkulator` er pushet, ikke publisert |
+| 3 | PWA (finnes delvis), egen Skann-side, strekkode med Open Food Facts-data, OCR og AI-skanning (Claude Haiku 5.5 i Supabase Edge Function med kvoter) | **Ferdig på branch `fase-3-matkalkulator`, venter på godkjenning** |
 | 4 | Leverandører og prishistorikk, lagerstyring, matsvinn (inkl. svinn i oppskrifter), Business-abonnementer, dashboard | Ikke startet |
 
 ## 3. Fase 1 – levert
@@ -90,6 +90,31 @@ Videreutvikling av Bakekalkulatoren til en matkalkulator for privatpersoner, bak
 | Import av lokale personal-/driftskostnader og menyer | Lokale data har bare én bruker. Arbeidstid i oppskrifter importeres ikke, fordi rollene ikke følger med |
 | Plan-/abonnementsgrenser for menyer | Avklares med Business-abonnementene i fase 4. Foreløpig maks 200 menyer per organisasjon |
 
+## 3c. Fase 3 – levert
+
+### Skann-siden (punkt 6)
+- Nytt menypunkt **Skann** med fire valg: skann ingrediens, skann oppskrift, skann kvittering eller leverandørfaktura, og last opp bilde (galleri i stedet for kamera). Snarvei i mobilmenyen og fra app-ikonet (manifest-snarveier).
+- **Ingrediens:** strekkode (BarcodeDetector, ZXing som reserve) slås opp i Open Food Facts med navn, produsent, pakning, ingrediensliste og allergener. Med AI kan etiketten tolkes. Allergener fra databasen eller AI merkes «ikke kontrollert». Manglende vare, opptatt tjeneste og manuell registrering er håndtert. Prisen legges alltid inn av brukeren.
+- **Oppskrift:** tekstgjenkjenning på telefonen eller AI. Navn, ingredienser, mengder, enheter, antall (stk/porsjoner), tilberedningstid, steketid, temperatur og steg vises i redigerbart skjema.
+- **Kvittering/faktura:** leverandør, dato, varer, antall, pakning, pris per pakning etter rabatt. Varene kobles til eksisterende ingredienser, nåværende pris vises ved siden av ny, og brukeren godkjenner hver endring. Historiske kostnader endres ikke.
+
+### AI og kostnadskontroll
+- Supabase Edge Function `ai-scan`. Ingen nøkler i frontend. Krever innlogging og medlemskap.
+- Standardmodell Claude Haiku 5.5 (`claude-haiku-5-5`, 0,10/0,50 USD per million tokens). Modell, priser, kostnadstak, hastighetsgrense, bildestørrelse og kvoter endres under **Administrasjon → AI-skanning**.
+- Kvoter per måned: Free 3, Plus 30, Pro 200. Håndheves i databasen med lås, også ved samtidige forespørsler. Feilede skanninger teller ikke. Strekkoder og tekstgjenkjenning teller ikke.
+- Faktisk tokenforbruk og kostnad registreres per skanning (`ai_usage`), uten innhold.
+- Strukturert utdata med fast JSON-skjema, og svaret valideres og renses på serveren. Teksten i bildet behandles som data, ikke som instruksjoner.
+- Bildet komprimeres i nettleseren før opplasting (maks 1600 px, ca. 1,4 MB) og lagres ikke. Ingen logging av innhold.
+- AI er av til systemadministrator slår den på og setter et kostnadstak.
+
+### Ikke med i fase 3
+| Hva | Hvorfor |
+|---|---|
+| Kvoter for Business og Business Plus (500 og 1 000) | Planene finnes ikke ennå, og kommer i fase 4 |
+| Lagring av kvitteringer og bilder | Krever aktivt valg fra kunden og Supabase Storage. Avklares sammen med bilder i oppskrifter |
+| Bilder i oppskrifter | Krever Supabase Storage med tilgangsstyring. Foreslås flyttet til fase 4 |
+| Live videostrøm for strekkode | Bilde av strekkoden virker på alle telefoner og PC-er. Live kamera kan legges til senere |
+
 ## 4. Database – migrasjon 5
 
 Fil: `supabase/migrations/20261127120000_matkalkulator_fase1.sql`. **Ikke kjørt mot produksjon.**
@@ -117,6 +142,18 @@ Fil: `supabase/migrations/20261128120000_matkalkulator_fase2.sql`. **Ikke kjørt
 - `save_ingredient`, `save_recipe`, `export_my_data` og `import_local_data` erstattes med utvidede versjoner. Eldre klienter som ikke sender de nye feltene, beholder lagrede verdier.
 - Frontend leser `recipe_ingredients!recipe_id(*)`, fordi det nå finnes to fremmednøkler mellom tabellene.
 
+## 4c. Database – migrasjon 7 (fase 3)
+
+Fil: `supabase/migrations/20261129120000_matkalkulator_fase3.sql`. **Ikke kjørt mot produksjon.** Krever migrasjon 5 og 6.
+
+- `ai_settings` (én rad, bare service_role og admin-funksjoner). `enabled = false` og kostnadstak 0 som standard.
+- `plan_features.ai_scans_per_month` (Free 3, Plus 30, Pro 200), som også følger med i `get_my_context`.
+- `ai_usage` med status, modell, tokens og kostnad. Medlemmer leser egen organisasjon. Bruker-id tas ikke med i eksporten.
+- `reserve_ai_scan` / `finish_ai_scan` kan bare kjøres av service_role (Edge Function).
+- `get_ai_status` for appen, og `admin_get_ai_settings`, `admin_set_ai_settings` og `admin_set_ai_quota` for systemadministrator.
+
+I tillegg: hemmeligheter og publisering av Edge Function (se README, «AI-skanning»).
+
 ## 5. Testing i fase 1
 
 - `npm test`: 313 tester (49 nye) – energi med registerutstyr, dobbeltberegning, målt forbruk, kontinuerlig drift, porsjoner/kilopris, mappers og databasetester for virksomhetstype, utstyr (RLS mellom kunder, roller, ugyldige verdier, eksport) og oppskrifter.
@@ -127,6 +164,12 @@ Fil: `supabase/migrations/20261128120000_matkalkulator_fase2.sql`. **Ikke kjørt
 
 - `npm test`: 361 tester (48 nye). Allergener (ukjent er aldri «fri», spor, krysskontakt, gjennom underoppskrifter), underoppskrifter (andel, sirkler), timekostnad, driftskostnader, full kostnad per porsjon, menyer, mappers og bakoverkompatibilitet. Databasetester for RLS mellom kunder, roller, validering, sirkulære referanser, eksport og import.
 - `npm run test:pg`: 11 grønne. `authFlow.supabase.test.ts` krever lokal Supabase (som før).
+- `npm run lint` og `npm run build` er grønne.
+
+## 5c. Testing i fase 3
+
+- `npm test`: 395 tester (34 nye). Databasetester for standardoppsett, tilgang (bare admin, bare service_role), medlemskap, kvote, pågående reservasjoner, hastighetsgrense, kostnadstak, kostnadsberegning og eksport. Enhetstester for validering av AI-svar, forespørsler, skjemaer, omforming til skjemaene, Open Food Facts med allergener og feil, og bildekomprimering. Røyktest for Skann-siden.
+- Edge Function er typesjekket mot Anthropic SDK 1.8.0 og supabase-js. Den er ikke kjørt mot Anthropic, fordi det krever API-nøkkel og koster penger.
 - `npm run lint` og `npm run build` er grønne.
 
 ## 6. Åpne spørsmål

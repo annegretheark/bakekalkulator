@@ -48,14 +48,25 @@ npm run deploy   # bygger med .env.local og publiserer (cf deploy)
 | Salg og fortjeneste | Kostnader, svinn, arbeid, mva, margin, påslag og anbefalt pris |
 | Innstillinger | Virksomhetstype (tilpasser meny og ord), frekvens, reservepris, språk/valuta, eksport/import og tilbakestilling |
 
-### Skanning (Pro)
+### Skanning
 
-All skanning kjører i nettleseren på telefonen. Bildene sendes ikke til noen server.
+Menypunktet **Skann** har fire valg: skann ingrediens, skann oppskrift, skann kvittering eller leverandørfaktura, og last opp bilde. Det virker på iPhone, Android, nettbrett og PC. Brukeren kontrollerer alltid resultatet i et redigerbart skjema før noe lagres, og godkjenner hver prisendring fra en kvittering.
+
+**På telefonen (Pro):** tekstgjenkjenning og strekkoder kjører i nettleseren. Bildene sendes ikke til noen server.
 
 - **Tekstgjenkjenning (OCR)** gjøres med [Tesseract.js](https://github.com/naptha/tesseract.js) og norsk språkdata. Biblioteket, WebAssembly-kjernen og språkdataene (noen MB) lastes fra jsDelivr første gang og caches av nettleseren.
 - **Tolkning** skjer i `src/utils/scanParse.ts`, med regler for mengder, enheter (ss, ts og krm regnes om til ml; pk og egg blir stk), antall, steg, temperatur og steketid, og for kvitteringslinjer med pakningsstørrelse. Funnene kobles til ingrediensregisteret med en enkel likhetsmatch. Brukeren kontrollerer alltid resultatet før noe lagres.
 - **Strekkoder** leses med nettleserens `BarcodeDetector`. Der den mangler (bl.a. iPhone), brukes `barcode-detector`, en WebAssembly-versjon av ZXing. Varen slås opp i [Open Food Facts](https://world.openfoodfacts.org); bare strekkoden sendes. Databasen har ikke priser, så prisen legges inn av brukeren.
-- Tilgangen styres i grensesnittet (`PLAN_FEATURES.scanning`). Siden funksjonen ikke bruker serveren, finnes den ikke i `plan_features`.
+- Fra Open Food Facts hentes også ingrediensliste og allergener (`allergens_tags`, `traces_tags`). Allergenene merkes som ikke kontrollert til brukeren har sjekket pakningen. Data fra Open Food Facts er lisensiert under ODbL, og kilden oppgis i appen. Er tjenesten opptatt (429) eller nede, kan varen alltid registreres manuelt.
+- Tilgangen styres i grensesnittet (`PLAN_FEATURES.scanning`). Siden funksjonen ikke bruker serveren, finnes den ikke i `plan_features`. Strekkoder og tekstgjenkjenning belaster ikke AI-kvoten.
+
+**AI-tolkning (alle planer, med månedskvote):** bedre på håndskrift, fakturaer og produktetiketter.
+- Supabase Edge Function `supabase/functions/ai-scan` kaller Claude. Standardmodell er **Claude Haiku 5.5** (`claude-haiku-5-5`), og den kan endres under Administrasjon → AI-skanning.
+- API-nøkkelen ligger bare som hemmelighet i Supabase (`ANTHROPIC_API_KEY`), aldri i frontend.
+- Funksjonen krever innlogging og medlemskap i organisasjonen. Kvote per plan (Free 3, Plus 30, Pro 200 per måned), hastighetsgrense per bruker og samlet kostnadstak håndheves i databasen (`reserve_ai_scan`) med lås, også ved samtidige forespørsler. Faktisk tokenforbruk og kostnad registreres (`ai_usage`, `finish_ai_scan`).
+- Bildet komprimeres i nettleseren (lengste side 1600 px, maks ca. 1,4 MB) og sendes bare til tolkning. Bilder, dokumenttekst og resultater lagres eller logges ikke. Feil logges bare med kode.
+- AI-svaret valideres mot et fast skjema (`supabase/functions/_shared/aiScan.ts`), og teksten i bildet behandles som data, ikke som instruksjoner.
+- AI-tolkning er **av** til systemadministrator slår den på og setter et kostnadstak over 0, og nøkkelen er lagt inn.
 
 ## Arkitektur
 
@@ -131,6 +142,7 @@ Ligger i `supabase/migrations/` og kjøres i rekkefølge:
 | `20261126120300_reference_data.sql` | Planer (Free/Plus/Pro) og offentlige strømprissatser |
 | `20261127120000_matkalkulator_fase1.sql` | Virksomhetstype på organisasjoner, utstyrsregister (`equipment` utvidet, `save_equipment`), kategori/porsjoner/tilberedningstid/ferdig vekt på oppskrifter. **Kjøres før ny frontend publiseres** |
 | `20261128120000_matkalkulator_fase2.sql` | Allergener på ingredienser, underoppskrifter (`recipe_ingredients.sub_recipe_id` med sperre mot sirkler), arbeidstid/emballasje/krysskontakt på oppskrifter, `cost_settings` (`save_cost_settings`, eier/admin) og `menus` (`save_menu`). Utvidet eksport og import. **Krever fase 1-migrasjonen. Kjøres før ny frontend publiseres** |
+| `20261129120000_matkalkulator_fase3.sql` | AI-skanning: `ai_settings` (av som standard, Claude Haiku 5.5), `plan_features.ai_scans_per_month`, `ai_usage` (forbruk uten innhold), `reserve_ai_scan`/`finish_ai_scan` (bare service_role), `get_ai_status` og admin-funksjoner. **Krever fase 2-migrasjonen** |
 
 Kjøre mot det eksterne prosjektet (etter godkjenning):
 
@@ -348,6 +360,15 @@ Norske maler ligger i `supabase/templates/` og brukes automatisk lokalt (`config
 | Change email address | `Bekreft ny e-postadresse – Rett i lomma` | `email_change.html` |
 
 Malene bruker Supabase-variablene `{{ .ConfirmationURL }}`, `{{ .Email }}`, `{{ .NewEmail }}`, `{{ .SiteURL }}` og navnet fra registreringen (`{{ .Data.full_name }}`, utelates hvis det mangler).
+
+### AI-skanning (Edge Function)
+
+1. Kjør migrasjonene til og med `20261129120000_matkalkulator_fase3.sql`.
+2. Legg inn hemmeligheter: `supabase secrets set ANTHROPIC_API_KEY=... ALLOWED_ORIGINS=https://bakekalkulator.rettilomma.com`.
+3. Publiser funksjonen: `supabase functions deploy ai-scan` (JWT-kontroll er på som standard).
+4. Slå på under **Administrasjon → AI-skanning**: kostnadstak per måned (USD) over 0, og eventuelt modell, priser og kvoter.
+
+Uten disse stegene er AI av, og appen viser bare tekstgjenkjenning og strekkoder.
 
 ### Manuelle innstillinger i Supabase Dashboard
 

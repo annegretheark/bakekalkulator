@@ -3,14 +3,12 @@ import { Barcode, Pencil, Plus, Receipt, Search, ShoppingBasket, Trash2 } from '
 import { UNITS, type Ingredient, type Unit } from '../types'
 import { useData, useFormat } from '../hooks/useData'
 import { Card, EmptyState, Notice, NumberField, PageHeader, SelectField, TextField } from '../components/ui'
-import { formatDate, formatMoney, formatNumber, toLocalDateKey, uid } from '../utils/format'
+import { formatDate, formatMoney, formatNumber, toLocalDateKey } from '../utils/format'
 import { unitDimension } from '../utils/units'
-import { PhotoButton, ReceiptScanPanel, ScanLocked } from '../components/ScanPanels'
-import { useScanAllowed } from '../hooks/useScanAllowed'
-import { decodeBarcode, lookupProduct } from '../services/scan'
+import { IngredientScanPanel, ReceiptScanPanel } from '../components/ScanPanels'
+import { blankIngredient as blank, takeIngredient } from '../lib/scanHandoff'
 import { AllergenEditor, AllergenSummary } from '../components/Allergens'
 
-const blank = (): Ingredient => ({ id: uid(), name: '', category: '', packageSize: 1, unit: 'kg', price: 0, store: '', priceUpdated: toLocalDateKey(new Date()), allergens: {}, allergensChecked: true })
 
 /** Pris per basisenhet for sammenligning (kr/kg, kr/l, kr/stk). */
 function unitPrice(i: Ingredient): string {
@@ -23,36 +21,13 @@ function unitPrice(i: Ingredient): string {
 export function IngredientsPage() {
   const f = useFormat()
   const { data, upsertIngredient, deleteIngredient } = useData()
-  const [editing, setEditing] = useState<Ingredient | null>(null)
+  // Utkast fra «Skann»-siden åpnes direkte i skjemaet
+  const [handoff] = useState(() => takeIngredient())
+  const [editing, setEditing] = useState<Ingredient | null>(handoff?.draft ?? null)
   const [query, setQuery] = useState('')
   const [receipt, setReceipt] = useState(false)
-  const [info, setInfo] = useState<{ tone: 'info' | 'warn' | 'error'; text: string } | null>(null)
-  const [barcodeBusy, setBarcodeBusy] = useState(false)
-  const [showLocked, setShowLocked] = useState(false)
-  const scan = useScanAllowed()
-
-  const scanBarcode = async (files: File[]) => {
-    setInfo(null)
-    setBarcodeBusy(true)
-    try {
-      const ean = await decodeBarcode(files[0])
-      if (!ean) { setInfo({ tone: 'warn', text: 'Fant ingen strekkode i bildet. Ta bildet nærmere og rett på strekkoden.' }); return }
-      const product = await lookupProduct(ean).catch(() => null)
-      if (!product) {
-        setEditing(blank())
-        setInfo({ tone: 'warn', text: `Strekkode ${ean} ble ikke funnet i varedatabasen. Fyll inn varen selv.` })
-        return
-      }
-      const withBrand = product.brand && !product.name.toLowerCase().includes(product.brand.toLowerCase()) ? `${product.name} (${product.brand})` : product.name
-      setEditing({ ...blank(), name: withBrand, packageSize: product.packageSize ?? 1, unit: product.unit ?? 'stk', category: product.category })
-      setInfo({ tone: 'info', text: `Fant «${product.name}». Kontroller pakningsstørrelsen og legg inn prisen du betalte.` })
-    } catch (e) {
-      console.error(e)
-      setInfo({ tone: 'error', text: 'Klarte ikke å lese strekkoden. Prøv igjen.' })
-    } finally {
-      setBarcodeBusy(false)
-    }
-  }
+  const [scanning, setScanning] = useState(false)
+  const [info, setInfo] = useState<{ tone: 'info' | 'warn' | 'error'; text: string } | null>(handoff ? { tone: 'info', text: handoff.message } : null)
 
   const usedIn = useMemo(() => {
     const m = new Map<string, number>()
@@ -85,14 +60,12 @@ export function IngredientsPage() {
     <>
       <PageHeader title="Ingredienser" description="Registrer innkjøpspriser. Kostnaden i oppskriftene beregnes automatisk ut fra mengden du bruker."
         actions={<>
-          <button className="btn ghost" onClick={() => { setReceipt(true); setInfo(null) }}><Receipt size={18} /> Skann kvittering</button>
-          {scan.allowed
-            ? <PhotoButton label={barcodeBusy ? 'Leser strekkode …' : 'Skann strekkode'} className="btn ghost" icon={<Barcode size={18} />} onFiles={scanBarcode} />
-            : <button className="btn ghost" onClick={() => setShowLocked(true)}><Barcode size={18} /> Skann strekkode</button>}
+          <button className="btn ghost" onClick={() => { setReceipt(true); setScanning(false); setInfo(null) }}><Receipt size={18} /> Skann kvittering</button>
+          <button className="btn ghost" onClick={() => { setScanning(true); setReceipt(false); setInfo(null) }}><Barcode size={18} /> Skann ingrediens</button>
           <button className="btn primary" onClick={() => setEditing(blank())}><Plus size={18} /> Ny ingrediens</button>
         </>} />
 
-      {showLocked && !scan.allowed && <ScanLocked loggedIn={scan.loggedIn} />}
+      {scanning && <IngredientScanPanel onCancel={() => setScanning(false)} onDone={(draft, message) => { setScanning(false); setEditing(draft); setInfo({ tone: 'info', text: message }) }} />}
       {info && <Notice tone={info.tone}>{info.text}</Notice>}
       {receipt && <ReceiptScanPanel onClose={(msg) => { setReceipt(false); if (msg) setInfo({ tone: 'info', text: msg }) }} />}
 

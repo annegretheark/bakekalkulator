@@ -153,7 +153,7 @@ describe('strekkode-oppslag', () => {
     }) as typeof fetch
     const p = await lookupProduct('7038010000737', fake)
     expect(calledUrl).toContain('/product/7038010000737.json')
-    expect(p).toEqual({ ean: '7038010000737', name: 'Hvetemel siktet', brand: 'Møllerens', packageSize: 2, unit: 'kg', category: 'Mel' })
+    expect(p).toEqual({ ean: '7038010000737', name: 'Hvetemel siktet', brand: 'Møllerens', packageSize: 2, unit: 'kg', category: 'Mel', ingredientsText: '', allergens: {} })
   })
 
   it('lookupProduct gir null for ukjent vare og ugyldig kode', async () => {

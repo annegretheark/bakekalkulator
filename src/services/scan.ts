@@ -2,7 +2,7 @@
 //  * tekstgjenkjenning (OCR) med Tesseract – bildet sendes ikke til noen server
 //  * strekkoder med nettleserens BarcodeDetector, eller en WebAssembly-versjon der den mangler
 // Bibliotekene lastes først når de trengs, så de ikke gjør appen tregere å åpne.
-import type { Unit } from '../types'
+import type { AllergenCode, AllergenMap, Unit } from '../types'
 
 export interface OcrProgress {
   status: string
@@ -91,7 +91,30 @@ export interface ProductInfo {
   packageSize: number | null
   unit: Unit | null
   category: string
+  /** Ingrediensliste slik den står i databasen (kan mangle eller være utdatert). */
+  ingredientsText: string
+  /** Allergener fra databasen. Det som ikke er nevnt, er ukjent. Må kontrolleres mot pakningen. */
+  allergens: AllergenMap
 }
+
+/** Allergen-tagger i Open Food Facts → appens 14 allergener. */
+const OFF_ALLERGENS: Record<string, AllergenCode> = {
+  'en:gluten': 'gluten', 'en:crustaceans': 'skalldyr', 'en:eggs': 'egg', 'en:fish': 'fisk', 'en:peanuts': 'peanotter',
+  'en:soybeans': 'soya', 'en:milk': 'melk', 'en:nuts': 'notter', 'en:celery': 'selleri', 'en:mustard': 'sennep',
+  'en:sesame-seeds': 'sesam', 'en:sulphur-dioxide-and-sulphites': 'sulfitt', 'en:lupin': 'lupin', 'en:molluscs': 'blotdyr',
+}
+
+/** Allergener og spor fra Open Food Facts. «Inneholder» vinner over «spor». */
+export function allergensFromOff(allergenTags: unknown, traceTags: unknown): AllergenMap {
+  const out: AllergenMap = {}
+  const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+  for (const t of list(traceTags)) { const c = OFF_ALLERGENS[t]; if (c) out[c] = 'spor' }
+  for (const t of list(allergenTags)) { const c = OFF_ALLERGENS[t]; if (c) out[c] = 'ja' }
+  return out
+}
+
+/** Varedatabasen svarte ikke som forventet (opptatt eller nede). Manuell registrering virker alltid. */
+export class ProductLookupError extends Error {}
 
 /** Tolker «1 kg», «500 g», «1,75 l», «33 cl», «12 x 50 g». */
 export function parseQuantity(q: string | undefined | null): { size: number; unit: Unit } | null {
@@ -106,20 +129,35 @@ export function parseQuantity(q: string | undefined | null): { size: number; uni
 }
 
 /**
- * Slår opp varen i Open Food Facts (åpen og gratis vareddatabase). Bare
- * strekkoden sendes. Databasen har ikke priser – prisen fyller brukeren inn.
+ * Slår opp varen i Open Food Facts (åpen og gratis varedatabase, lisens ODbL –
+ * kilden må oppgis). Bare strekkoden sendes. Databasen har ikke priser – prisen
+ * fyller brukeren inn. Returnerer null når varen ikke finnes, og kaster
+ * ProductLookupError når tjenesten er opptatt eller utilgjengelig.
  */
 export async function lookupProduct(ean: string, fetchImpl: typeof fetch = fetch): Promise<ProductInfo | null> {
   if (!/^\d{8,14}$/.test(ean)) return null
-  const url = `https://world.openfoodfacts.org/api/v2/product/${ean}.json?fields=product_name,product_name_nb,product_name_no,brands,quantity,categories`
-  const res = await fetchImpl(url, { headers: { Accept: 'application/json' } })
-  if (!res.ok) return null
-  const json = (await res.json()) as { status?: number; product?: Record<string, string | undefined> }
+  const fields = 'product_name,product_name_nb,product_name_no,brands,quantity,categories,ingredients_text,ingredients_text_nb,ingredients_text_no,allergens_tags,traces_tags'
+  const url = `https://world.openfoodfacts.org/api/v2/product/${ean}.json?fields=${fields}`
+  let res: Response
+  try {
+    res = await fetchImpl(url, { headers: { Accept: 'application/json' } })
+  } catch (e) {
+    throw new ProductLookupError('Fikk ikke kontakt med varedatabasen.', { cause: e })
+  }
+  if (res.status === 404) return null
+  if (res.status === 429) throw new ProductLookupError('Varedatabasen har mange forespørsler akkurat nå. Prøv igjen om litt, eller fyll inn varen selv.')
+  if (!res.ok) throw new ProductLookupError('Varedatabasen svarer ikke akkurat nå.')
+  const json = (await res.json()) as { status?: number; product?: Record<string, unknown> }
   const p = json.product
   if (json.status !== 1 || !p) return null
-  const name = (p.product_name_nb || p.product_name_no || p.product_name || '').trim()
+  const str = (v: unknown) => (typeof v === 'string' ? v : '')
+  const name = (str(p.product_name_nb) || str(p.product_name_no) || str(p.product_name)).trim()
   if (!name) return null
-  const q = parseQuantity(p.quantity)
-  const category = (p.categories ?? '').split(',').map((c) => c.trim()).filter((c) => c && !c.includes(':')).pop() ?? ''
-  return { ean, name, brand: (p.brands ?? '').split(',')[0].trim(), packageSize: q?.size ?? null, unit: q?.unit ?? null, category }
+  const q = parseQuantity(str(p.quantity))
+  const category = str(p.categories).split(',').map((c) => c.trim()).filter((c) => c && !c.includes(':')).pop() ?? ''
+  return {
+    ean, name, brand: str(p.brands).split(',')[0].trim(), packageSize: q?.size ?? null, unit: q?.unit ?? null, category,
+    ingredientsText: (str(p.ingredients_text_nb) || str(p.ingredients_text_no) || str(p.ingredients_text)).trim().slice(0, 4000),
+    allergens: allergensFromOff(p.allergens_tags, p.traces_tags),
+  }
 }

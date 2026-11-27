@@ -428,3 +428,20 @@ tr.warn-row td { background: var(--wheat-soft); }
   .table-wrap { overflow: visible !important; }
   .notice { border: 1px solid #999; }
 }
+
+/* ---------- Fase 3: Skann ---------- */
+.scan-choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.scan-choice {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; cursor: pointer;
+  padding: 18px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); color: inherit;
+  box-shadow: var(--shadow); transition: border-color 0.15s, transform 0.05s; min-height: 120px;
+}
+.scan-choice svg { color: var(--green-2); }
+.scan-choice:hover { border-color: var(--green-2); }
+.scan-choice:active { transform: scale(0.99); }
+.scan-row .full { grid-column: 1 / -1; }
+@media (max-width: 860px) {
+  .scan-choices { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .scan-choice { padding: 14px; min-height: 110px; }
+}
+@media (max-width: 380px) { .scan-choices { grid-template-columns: 1fr; } }

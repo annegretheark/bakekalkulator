@@ -11,6 +11,7 @@ export const nb = {
   'nav.equipment': 'Utstyr',
   'nav.costs': 'Personal og drift',
   'nav.menus': 'Menyer',
+  'nav.scan': 'Skann',
   'nav.history': 'Bakehistorikk',
   'nav.sales': 'Salg og fortjeneste',
   'nav.settings': 'Innstillinger',

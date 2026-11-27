@@ -61,7 +61,7 @@ const BAKERY: BusinessProfile = {
   defaultCategory: 'brod_bakervarer',
   defaultYieldUnit: 'stk',
   showStorePrice: true,
-  mobileTabs: ['oversikt', 'kalkulator', 'strompriser', 'oppskrifter'],
+  mobileTabs: ['oversikt', 'kalkulator', 'oppskrifter', 'skann'],
   hiddenRoutes: [],
 }
 
@@ -75,7 +75,7 @@ const FOOD: BusinessProfile = {
   defaultCategory: 'hovedretter',
   defaultYieldUnit: 'porsjoner',
   showStorePrice: false,
-  mobileTabs: ['oversikt', 'kalkulator', 'oppskrifter', 'menyer'],
+  mobileTabs: ['oversikt', 'oppskrifter', 'menyer', 'skann'],
   hiddenRoutes: [],
 }
 

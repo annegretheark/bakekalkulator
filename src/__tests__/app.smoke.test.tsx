@@ -13,6 +13,7 @@ const HEADINGS: Record<string, RegExp> = {
   utstyr: /^Utstyr$/,
   kostnader: /^Personal og drift$/,
   menyer: /^Menyer$/,
+  skann: /^Skann$/,
   historikk: /^Bakehistorikk$/,
   salg: /^Salg og fortjeneste$/,
   innstillinger: /^Innstillinger$/,
@@ -115,8 +116,21 @@ describe('appen', () => {
     expect(screen.queryByText(/er med i Pro/)).toBeNull()
 
     await go('ingredienser')
+    await act(async () => { (await screen.findByRole('button', { name: /Skann ingrediens/ })).click() })
     expect(await screen.findByRole('button', { name: /Skann strekkode/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Registrer manuelt/ })).toBeTruthy()
     await act(async () => { screen.getByRole('button', { name: /Skann kvittering/ }).click() })
-    expect(await screen.findByRole('button', { name: /Ta bilde av kvittering/ })).toBeTruthy()
+    expect(await screen.findByRole('heading', { level: 2, name: /Skann kvittering eller faktura/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^Ta bilde$/ })).toBeTruthy()
+
+    // Skann-siden har de fire valgene. Uten innlogging vises ikke AI-tolkning.
+    await go('skann')
+    for (const name of [/Skann ingrediens/, /Skann oppskrift/, /Skann kvittering eller faktura/, /Last opp bilde/]) {
+      expect(await screen.findByRole('button', { name })).toBeTruthy()
+    }
+    expect(screen.queryByRole('button', { name: /Tolk med AI/ })).toBeNull()
+    await act(async () => { screen.getByRole('button', { name: /Last opp bilde/ }).click() })
+    await act(async () => { screen.getByRole('button', { name: /Bilde av oppskrift/ }).click() })
+    expect(await screen.findByRole('button', { name: /Velg bilder/ })).toBeTruthy()
   })
 })
