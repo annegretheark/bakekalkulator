@@ -43,7 +43,8 @@ export function LoginPage() {
     run(async () => {
       try {
         await signIn(client as unknown as AuthClient, email, password)
-        navigate('oversikt')
+        // Fra innloggingssiden: gå til oversikten. Ellers blir brukeren på siden de prøvde å åpne.
+        if (/^#\/?logg-inn$/.test(window.location.hash)) navigate('oversikt')
       } catch (err) {
         setUnconfirmed(err instanceof Error && err.message.includes('ikke bekreftet'))
         throw err
@@ -53,7 +54,7 @@ export function LoginPage() {
 
   return (
     <>
-      <PageHeader title="Logg inn" description="Logg inn for å lagre oppskrifter, ingredienser og historikk i skyen." />
+      <PageHeader title="Logg inn" description="Logg inn for å bruke Bakekalkulatoren. Ny bruker? Opprett en konto og få 30 dager gratis Pro." />
       <Card className="auth-card">
         <form onSubmit={submit} className="stack" noValidate>
           <TextField label="E-post" type="email" value={email} onChange={setEmail} />

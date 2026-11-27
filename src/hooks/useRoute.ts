@@ -9,8 +9,15 @@ export const ROUTES: AppRoute[] = ['oversikt', 'kalkulator', 'strompriser', 'opp
 export const ACCOUNT_ROUTES: AccountRoute[] = ['logg-inn', 'registrer', 'glemt-passord', 'tilbakestill-passord', 'konto', 'admin', 'personvern', 'vilkar']
 const ALL_ROUTES: RouteKey[] = [...ROUTES, ...ACCOUNT_ROUTES]
 
-/** Sider som krever innlogging når Supabase er satt opp. */
-export const PROTECTED_ROUTES: RouteKey[] = ['konto', 'admin', 'salg']
+/**
+ * Sider som kan åpnes uten innlogging. Når Supabase er satt opp, krever alle
+ * andre sider innlogging (i lokal modus uten Supabase er alt åpent).
+ */
+export const PUBLIC_ROUTES: RouteKey[] = ['logg-inn', 'registrer', 'glemt-passord', 'tilbakestill-passord', 'personvern', 'vilkar']
+
+export function requiresLogin(route: RouteKey): boolean {
+  return !PUBLIC_ROUTES.includes(route)
+}
 
 /** Hash-basert ruting: fungerer på statisk hosting (Cloudflare Pages) uten serveroppsett. */
 function read(): RouteKey {

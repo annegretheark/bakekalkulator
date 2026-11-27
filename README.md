@@ -102,7 +102,7 @@ supabase/
 
 ## Supabase-backend
 
-Uten innlogging fungerer appen som før, med alt lagret lokalt i nettleseren. Innloggede brukere lagrer i Supabase (PostgreSQL), med Row Level Security på alle tabeller.
+Når Supabase er satt opp, krever appen innlogging. Innloggede brukere lagrer i Supabase (PostgreSQL), med Row Level Security på alle tabeller.
 
 ### Oppsett
 
@@ -207,7 +207,7 @@ Viktige constraints:
 - **Atomisk opprettelse på serversiden:** triggeren `handle_new_user` på `auth.users` oppretter profil, organisasjon, eiermedlemskap, 30 dagers Pro-prøve, brukerinnstillinger og strømoppsett i samme transaksjon som brukeren. Feiler ett ledd, opprettes ingenting.
 - E-postbekreftelse, innlogging, utlogging, glemt passord og tilbakestilling (`?auth=recovery`).
 - Vedvarende sesjon (`persistSession`, automatisk fornyelse) og PKCE-flyt, slik at innloggingslenker bruker `?code=` og ikke kolliderer med hash-rutingen.
-- Beskyttede sider: `#/konto`, `#/admin` og `#/salg` krever innlogging når Supabase er satt opp. Tilgang håndheves uansett i databasen.
+- Innlogging kreves: når Supabase er satt opp, viser alle sider innloggingen til brukeren er logget inn. Bare innlogging, registrering, glemt/tilbakestill passord, personvern og vilkår er åpne (`PUBLIC_ROUTES` i `src/hooks/useRoute.ts`). Etter innlogging vises siden brukeren prøvde å åpne. Menyen er skjult for brukere som ikke er logget inn. Tilgang håndheves uansett i databasen.
 
 ### Abonnement
 
@@ -226,7 +226,7 @@ Viktige constraints:
 
 ### Datalagring og import
 
-- `DataRepository` har to implementasjoner: `LocalStorageRepository` (uten innlogging) og `SupabaseRepository` (innlogget, aktiv organisasjon). Sidene er de samme.
+- `DataRepository` har to implementasjoner: `LocalStorageRepository` (lokal modus uten Supabase) og `SupabaseRepository` (innlogget, aktiv organisasjon). Sidene er de samme.
 - Oppskrifter lagres atomisk med linjer via `save_recipe`.
 - **Import av lokale data** (Konto → *Importer lokale data*):
   - Oppskrifter og ingredienser sendes med lokale id-er (`local_id`), og alt kjøres i én transaksjon (`import_local_data`).

@@ -1,13 +1,12 @@
 import { useMemo, type ReactNode } from 'react'
-import { Loader2, Lock, X } from 'lucide-react'
+import { Loader2, X } from 'lucide-react'
 import { AuthProvider } from './context/AuthProvider'
 import { DataProvider } from './context/DataProvider'
 import { PricesProvider } from './context/PricesProvider'
 import { Layout } from './components/Layout'
-import { Notice, PageHeader } from './components/ui'
 import { useData } from './hooks/useData'
 import { useAuth } from './hooks/useAuth'
-import { navigate, PROTECTED_ROUTES, useRoute, type RouteKey } from './hooks/useRoute'
+import { requiresLogin, useRoute, type RouteKey } from './hooks/useRoute'
 import { localRepository, SupabaseRepository } from './services/storage'
 import { Overview } from './pages/Overview'
 import { CalculatorPage } from './pages/CalculatorPage'
@@ -41,19 +40,14 @@ const PAGES: Record<RouteKey, () => React.JSX.Element | null> = {
   vilkar: TermsPage,
 }
 
-const TITLES: Partial<Record<RouteKey, string>> = { konto: 'Konto', admin: 'Administrasjon', salg: 'Salg og fortjeneste' }
-
-/** Beskyttede sider krever innlogging når Supabase er satt opp. Tilgangen håndheves uansett i databasen. */
+/**
+ * Når Supabase er satt opp, krever appen innlogging: alle sider unntatt innlogging,
+ * registrering, passord og juridiske sider viser innloggingen i stedet. Etter
+ * innlogging vises siden brukeren prøvde å åpne. Tilgangen håndheves uansett i databasen.
+ */
 function Guard({ route, children }: { route: RouteKey; children: ReactNode }) {
   const { configured, user } = useAuth()
-  if (configured && !user && PROTECTED_ROUTES.includes(route)) {
-    return (
-      <>
-        <PageHeader title={TITLES[route] ?? 'Logg inn'} />
-        <Notice><Lock size={14} /> Denne siden krever innlogging. <button className="link" onClick={() => navigate('logg-inn')}>Logg inn</button> eller <button className="link" onClick={() => navigate('registrer')}>opprett gratis konto</button> (30 dager Pro).</Notice>
-      </>
-    )
-  }
+  if (configured && !user && requiresLogin(route)) return <LoginPage />
   return <>{children}</>
 }
 
@@ -76,7 +70,7 @@ function Routed() {
 
 /**
  * Velger lagring: Supabase for innloggede brukere med aktiv organisasjon,
- * ellers localStorage (kalkulatoren kan brukes uten innlogging).
+ * ellers localStorage (lokal modus uten Supabase; med Supabase vises bare innloggingen).
  */
 function DataScope({ children }: { children: ReactNode }) {
   const auth = useAuth()

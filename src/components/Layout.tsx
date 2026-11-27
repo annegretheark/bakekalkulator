@@ -32,6 +32,8 @@ export function Layout({ route, children }: { route: RouteKey; children: ReactNo
   const area = data.settings.price.area
   const auth = useAuth()
   const days = trialDaysLeft(auth.activeOrg?.subscription)
+  // Ikke innlogget (med Supabase): appen er låst, så menyen skjules
+  const locked = auth.configured && !auth.user
 
   const go = (k: RouteKey) => { setOpen(false); navigate(k) }
 
@@ -46,13 +48,13 @@ export function Layout({ route, children }: { route: RouteKey; children: ReactNo
           </span>
           <button className="icon-btn only-mobile" onClick={() => setOpen(false)} aria-label="Lukk meny"><X size={20} /></button>
         </div>
-        <nav>
+        {!locked && <nav>
           {NAV.map(({ key, label, icon: Icon }) => (
             <a key={key} href={`#/${key}`} className={route === key ? 'active' : ''} aria-current={route === key ? 'page' : undefined} onClick={(e) => { e.preventDefault(); go(key) }}>
               <Icon size={18} aria-hidden /> {t(label)}
             </a>
           ))}
-        </nav>
+        </nav>}
         {auth.configured && (
           <div className="account-box">
             {auth.user ? (
@@ -71,9 +73,14 @@ export function Layout({ route, children }: { route: RouteKey; children: ReactNo
                 )}
               </>
             ) : (
-              <a href="#/logg-inn" className={route === 'logg-inn' ? 'active' : ''} onClick={(e) => { e.preventDefault(); go('logg-inn') }}>
-                <LogIn size={18} aria-hidden /> <span>Logg inn<small>Lagre i skyen · 30 dager Pro</small></span>
-              </a>
+              <>
+                <a href="#/logg-inn" className={route === 'logg-inn' ? 'active' : ''} onClick={(e) => { e.preventDefault(); go('logg-inn') }}>
+                  <LogIn size={18} aria-hidden /> <span>Logg inn</span>
+                </a>
+                <a href="#/registrer" className={route === 'registrer' ? 'active' : ''} onClick={(e) => { e.preventDefault(); go('registrer') }}>
+                  <UserRound size={18} aria-hidden /> <span>Opprett konto<small>30 dager gratis Pro</small></span>
+                </a>
+              </>
             )}
           </div>
         )}
@@ -94,7 +101,7 @@ export function Layout({ route, children }: { route: RouteKey; children: ReactNo
           <span className="topbar-price">{prices.currentTotal !== null ? formatOre(prices.currentTotal, locale) : ''}</span>
         </header>
         <main className="content">{children}</main>
-        <nav className="tabbar only-mobile" aria-label="Snarveier">
+        {!locked && <nav className="tabbar only-mobile" aria-label="Snarveier">
           {NAV.filter((n) => MOBILE_TABS.includes(n.key)).map(({ key, label, icon: Icon }) => (
             <a key={key} href={`#/${key}`} className={route === key ? 'active' : ''} onClick={(e) => { e.preventDefault(); go(key) }}>
               <Icon size={20} aria-hidden />
@@ -102,7 +109,7 @@ export function Layout({ route, children }: { route: RouteKey; children: ReactNo
             </a>
           ))}
           <button type="button" onClick={() => setOpen(true)}><Menu size={20} aria-hidden /><span>Mer</span></button>
-        </nav>
+        </nav>}
       </div>
     </div>
   )
